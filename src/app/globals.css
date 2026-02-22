@@ -1,0 +1,409 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --brand-primary: #3b82f6;
+  --brand-secondary: #60a5fa;
+  --brand-cta: #f97316;
+  --app-header-height: 53px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter-sans), "Segoe UI", sans-serif;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shine-sweep {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -180% 0;
+  }
+}
+
+@keyframes kanban-card-hop {
+  0% {
+    transform: translate3d(0, 18px, 0) scale(0.98) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: translate3d(26px, -20px, 0) scale(1.03) rotate(8deg);
+    opacity: 1;
+  }
+  40% {
+    transform: translate3d(52px, 10px, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  56% {
+    transform: translate3d(52px, 10px, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  72% {
+    transform: translate3d(78px, -12px, 0) scale(1.03) rotate(7deg);
+    opacity: 1;
+  }
+  86% {
+    transform: translate3d(104px, 18px, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  96% {
+    transform: translate3d(104px, 18px, 0) scale(1) rotate(0deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 18px, 0) scale(0.98) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+@keyframes kanban-text-pulse {
+  0%,
+  100% {
+    opacity: 0.56;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.motion-rise {
+  animation: rise-in 640ms ease-out both;
+}
+
+.shine-on-hover:hover {
+  background-image: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(241, 245, 249, 1) 35%,
+    rgba(255, 255, 255, 1) 60%
+  );
+  background-size: 220% 100%;
+  animation: shine-sweep 280ms ease-out;
+}
+
+.loading-shimmer {
+  background-image: linear-gradient(
+    110deg,
+    rgba(15, 23, 42, 0.88) 8%,
+    rgba(56, 189, 248, 0.16) 30%,
+    rgba(129, 140, 248, 0.14) 48%,
+    rgba(15, 23, 42, 0.88) 72%
+  );
+  background-size: 220% 100%;
+  animation: loading-shimmer 1.3s ease-in-out infinite;
+}
+
+.kanban-loader-container {
+  text-align: center;
+}
+
+.kanban-loader-board {
+  position: relative;
+  display: flex;
+  height: 152px;
+  width: 204px;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: linear-gradient(
+    165deg,
+    rgba(17, 24, 39, 0.92) 4%,
+    rgba(30, 41, 59, 0.86) 60%,
+    rgba(15, 23, 42, 0.9) 100%
+  );
+  box-shadow:
+    0 18px 38px rgba(2, 6, 23, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.kanban-loader-board-compact {
+  height: 130px;
+  width: 178px;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+.kanban-loader-col {
+  height: 100%;
+  width: 40px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.95);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.04),
+    inset 0 -1px 1px rgba(2, 6, 23, 0.35);
+}
+
+.kanban-loader-col::before {
+  content: "";
+  margin: 7px auto 0;
+  display: block;
+  height: 4px;
+  width: 20px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.72);
+}
+
+.kanban-loader-card {
+  position: absolute;
+  top: 22px;
+  left: 16px;
+  z-index: 10;
+  height: 24px;
+  width: 40px;
+  border-radius: 6px;
+  opacity: 0;
+  animation: kanban-card-hop 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.kanban-loader-card-1 {
+  background: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.36);
+}
+
+.kanban-loader-card-2 {
+  animation-delay: 0.8s;
+  background: #8b5cf6;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.34);
+}
+
+.kanban-loader-card-3 {
+  animation-delay: 1.6s;
+  background: #10b981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.33);
+}
+
+.kanban-loader-text-pulse {
+  animation: kanban-text-pulse 1.5s ease-in-out infinite;
+}
+
+.board-column-scroll {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.45) rgba(15, 23, 42, 0.25);
+  scroll-behavior: smooth;
+}
+
+.board-column-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.board-column-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.25);
+  border-radius: 999px;
+}
+
+.board-column-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.55) 0%,
+    rgba(59, 130, 246, 0.45) 100%
+  );
+  border: 2px solid rgba(15, 23, 42, 0.65);
+  border-radius: 999px;
+}
+
+.board-column-scroll:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.75) 0%,
+    rgba(96, 165, 250, 0.55) 100%
+  );
+}
+
+.board-lane-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.5) rgba(15, 23, 42, 0.35);
+}
+
+.board-lane-scroll::-webkit-scrollbar:horizontal {
+  height: 8px;
+}
+
+.board-lane-scroll::-webkit-scrollbar-track:horizontal {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.board-lane-scroll::-webkit-scrollbar-thumb:horizontal {
+  background: linear-gradient(
+    90deg,
+    rgba(125, 211, 252, 0.42) 0%,
+    rgba(45, 212, 191, 0.45) 100%
+  );
+  border-radius: 999px;
+}
+
+.board-lane-scroll::-webkit-scrollbar-thumb:horizontal:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(125, 211, 252, 0.62) 0%,
+    rgba(45, 212, 191, 0.65) 100%
+  );
+}
+
+.card-date-scroll {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.55) rgba(15, 23, 42, 0.28);
+}
+
+.card-date-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.card-date-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.28);
+  border-radius: 999px;
+}
+
+.card-date-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(56, 189, 248, 0.6) 0%,
+    rgba(59, 130, 246, 0.55) 100%
+  );
+  border: 2px solid rgba(15, 23, 42, 0.68);
+  border-radius: 999px;
+}
+
+.card-date-scroll:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(125, 211, 252, 0.78) 0%,
+    rgba(96, 165, 250, 0.68) 100%
+  );
+}
+
+.board-menu-scroll {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.58) rgba(15, 23, 42, 0.36);
+}
+
+.board-menu-scroll::-webkit-scrollbar {
+  width: 9px;
+}
+
+.board-menu-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.36);
+  border-radius: 999px;
+}
+
+.board-menu-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(56, 189, 248, 0.62) 0%,
+    rgba(129, 140, 248, 0.48) 100%
+  );
+  border: 2px solid rgba(15, 23, 42, 0.7);
+  border-radius: 999px;
+}
+
+.board-menu-scroll:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(125, 211, 252, 0.8) 0%,
+    rgba(165, 180, 252, 0.66) 100%
+  );
+}
+
+.board-no-text-selection,
+.board-no-text-selection * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.board-no-text-selection input,
+.board-no-text-selection textarea,
+.board-no-text-selection [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-shimmer {
+    animation: none !important;
+    background-image: none;
+    background-color: rgba(30, 41, 59, 0.68);
+  }
+
+  .kanban-loader-card,
+  .kanban-loader-text-pulse {
+    animation: none !important;
+  }
+
+  .kanban-loader-card {
+    opacity: 1;
+  }
+
+  .kanban-loader-card-1 {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .kanban-loader-card-2 {
+    transform: translate3d(52px, 10px, 0);
+  }
+
+  .kanban-loader-card-3 {
+    transform: translate3d(104px, 18px, 0);
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
