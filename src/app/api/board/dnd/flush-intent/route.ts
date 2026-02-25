@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 type DndResultCode = "CONFLICT" | "FORBIDDEN" | "INVALID" | "NOT_FOUND" | "INTERNAL" | "RATE_LIMITED";
@@ -167,14 +168,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid flush payload.", ok: false }, { status: 400 });
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     return NextResponse.json({ message: "Unauthorized.", ok: false }, { status: 401 });
   }
+
+  const supabase = await createServerSupabaseClient();
 
   const { data: canWriteBoard, error: accessError } = await supabase.rpc("can_write_board", {
     target_board_id: parsedBody.data.boardId,

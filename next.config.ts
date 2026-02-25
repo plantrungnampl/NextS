@@ -30,12 +30,29 @@ function websocketOriginFromHttpOrigin(httpOrigin: string): string {
 
 function buildContentSecurityPolicy(): string {
   const supabaseOrigin = originFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const scriptSource =
-    process.env.NODE_ENV === "production"
-      ? "'self' 'unsafe-inline'"
-      : "'self' 'unsafe-inline' 'unsafe-eval'";
+  const clerkSources = [
+    "https://*.clerk.accounts.dev",
+    "https://*.clerk.dev",
+    "https://*.clerk.services",
+    "https://api.clerk.com",
+  ];
+  const turnstileSources = [
+    "https://challenges.cloudflare.com",
+  ];
+  const scriptSources = [...clerkSources, ...turnstileSources];
+  const frameSources = [...clerkSources, ...turnstileSources];
+  const scriptSourceBase = process.env.NODE_ENV === "production"
+    ? ["'self'", "'unsafe-inline'"]
+    : ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
+  const scriptSource = [...scriptSourceBase, ...scriptSources].join(" ");
 
   const connectSources = new Set(["'self'"]);
+  for (const clerkSource of clerkSources) {
+    connectSources.add(clerkSource);
+  }
+  for (const turnstileSource of turnstileSources) {
+    connectSources.add(turnstileSource);
+  }
   if (supabaseOrigin) {
     connectSources.add(supabaseOrigin);
     connectSources.add(websocketOriginFromHttpOrigin(supabaseOrigin));
@@ -47,9 +64,11 @@ function buildContentSecurityPolicy(): string {
   const directives = [
     "default-src 'self'",
     `script-src ${scriptSource}`,
+    `script-src-elem ${scriptSource}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
+    `frame-src 'self' ${frameSources.join(" ")}`,
     `connect-src ${Array.from(connectSources).join(" ")}`,
     "media-src 'self' blob:",
     "worker-src 'self' blob:",

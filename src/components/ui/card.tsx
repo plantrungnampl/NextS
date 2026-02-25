@@ -27,10 +27,14 @@ export const CardHeader = forwardRef<HTMLDivElement, CardProps>(function CardHea
 CardHeader.displayName = "CardHeader";
 
 export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(function CardTitle(
-  { className, ...props },
+  { children, className, ...props },
   ref,
 ) {
-  return <h2 className={cn("text-xl font-semibold text-slate-900", className)} ref={ref} {...props} />;
+  return (
+    <h2 className={cn("text-xl font-semibold text-slate-900", className)} ref={ref} {...props}>
+      {children ?? <span className="sr-only">Card title</span>}
+    </h2>
+  );
 });
 CardTitle.displayName = "CardTitle";
 

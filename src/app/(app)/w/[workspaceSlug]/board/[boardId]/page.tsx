@@ -61,7 +61,10 @@ export default async function BoardPage({ params, searchParams }: BoardPageProps
           canWriteBoard={data.canWriteBoard}
           role={data.membershipRole}
           visibility={data.board.visibility}
+          viewerId={data.viewer.id}
           workspaceName={data.workspace.name}
+          workspaceLabels={data.workspaceLabels}
+          workspaceMembers={data.workspaceMembers}
           workspaceSlug={workspaceSlug}
         />
         <BoardTabContent

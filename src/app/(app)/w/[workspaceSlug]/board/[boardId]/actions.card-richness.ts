@@ -40,6 +40,7 @@ export {
   getRecentAttachmentLinksInline,
   refreshLegacyAttachmentTitlesInline,
 } from "./actions.attachments.links";
+export { updateCardCoverInline } from "./actions.card-cover";
 export {
   createChecklistInline,
   createChecklistItemInline,

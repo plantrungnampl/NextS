@@ -1,48 +1,49 @@
-import { features } from "../data/home-content";
-import type { UiTheme } from "../types";
+import { ArrowRight } from "lucide-react";
+
+import { SectionHeading } from "../components";
+import type { HomeContent } from "../data/home-content";
 
 type FeatureSectionProps = {
-  theme: UiTheme;
+  content: HomeContent;
 };
 
-export function FeatureSection({ theme }: FeatureSectionProps) {
+export function FeatureSection({ content }: FeatureSectionProps) {
   return (
-    <section id="features" className="mx-auto w-full max-w-6xl px-6 py-16 md:px-10">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-        Core capabilities
-      </p>
-      <h2 className="mt-3 max-w-3xl text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
-        Strong UX, clear governance, and board speed your team can feel.
-      </h2>
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {features.map((feature) => (
-          <article
-            key={feature.title}
-            className={`motion-rise rounded-3xl p-6 shadow-sm backdrop-blur ${theme.panelSurfaceClass}`}
-          >
-            <span
-              className={`grid size-11 place-items-center rounded-xl ${theme.featureIconClass}`}
+    <section id="features" className="mx-auto w-full max-w-[1200px] px-6 py-20">
+      <SectionHeading
+        eyebrow={content.features.eyebrow}
+        title={content.features.title}
+        description={content.features.description}
+      />
+      <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        {content.features.cards.map((feature, featureIndex) => {
+          const Icon = feature.icon;
+
+          return (
+            <article
+              key={feature.title}
+              className="home-reveal rounded-[16px] border border-[var(--home-border-soft)] bg-[var(--home-surface)] p-6 shadow-[0_8px_24px_rgba(9,30,66,0.08)]"
+              style={{ animationDelay: `${featureIndex * 50}ms` }}
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className="size-6 stroke-current stroke-2"
+              <span className="inline-flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#0079BF] to-[#00C4B4] text-white shadow-[0_8px_20px_rgba(0,121,191,0.24)]">
+                <Icon className="size-5" />
+              </span>
+              <h3 className="mt-4 text-[1.75rem] font-bold leading-[1.15] tracking-[-0.02em] text-[var(--home-text-primary)]">
+                {feature.title}
+              </h3>
+              <p className="mt-3 text-base leading-7 text-[var(--home-text-secondary)]">
+                {feature.description}
+              </p>
+              <a
+                href={feature.href}
+                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#0079BF] transition-transform duration-180 hover:translate-x-0.5"
               >
-                <path
-                  d={feature.icon}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <h3 className="mt-4 text-xl font-bold text-slate-900">
-              {feature.title}
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
-              {feature.description}
-            </p>
-          </article>
-        ))}
+                {content.features.learnMoreLabel}
+                <ArrowRight className="size-4" />
+              </a>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

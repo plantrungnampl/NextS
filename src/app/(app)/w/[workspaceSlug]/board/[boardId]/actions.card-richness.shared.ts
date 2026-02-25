@@ -5,7 +5,7 @@ import { z } from "zod";
 import { APP_ROUTES } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
-import { boardRoute, withBoardError } from "./actions.shared";
+import { boardRoute, type BoardAccess, withBoardError } from "./actions.shared";
 import type { WorkspaceRole } from "./types";
 
 export const ATTACHMENT_BUCKET = "attachments";
@@ -160,6 +160,31 @@ export function sanitizeFileName(fileName: string): string {
 export function assertAdminRole(role: WorkspaceRole, workspaceSlug: string, boardId: string): void {
   if (role === "owner" || role === "admin") {
     return;
+  }
+
+  redirect(withBoardError(workspaceSlug, boardId, "Only owner/admin can manage workspace labels."));
+}
+
+export function canManageWorkspaceLabels(access: Pick<BoardAccess, "isBoardCreator" | "role">): boolean {
+  return access.isBoardCreator || access.role === "owner" || access.role === "admin";
+}
+
+export function assertCanManageWorkspaceLabels(
+  access: Pick<BoardAccess, "isBoardCreator" | "role">,
+  workspaceSlug: string,
+  boardId: string,
+): void {
+  if (canManageWorkspaceLabels(access)) {
+    return;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[labels] denied workspace label management", {
+      boardId,
+      isBoardCreator: access.isBoardCreator,
+      role: access.role,
+      workspaceSlug,
+    });
   }
 
   redirect(withBoardError(workspaceSlug, boardId, "Only owner/admin can manage workspace labels."));

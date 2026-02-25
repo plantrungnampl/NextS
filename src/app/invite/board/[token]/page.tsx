@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import {
@@ -11,6 +12,7 @@ import {
   SubmitButton,
 } from "@/components/ui";
 import { APP_ROUTES } from "@/core";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { hashInviteToken, isInviteExpired } from "@/lib/invites";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { getFirstQueryParamValue, isPromise } from "@/shared";
@@ -39,6 +41,11 @@ type BoardInviteRecord = {
   invited_email: string;
   invited_role: "viewer" | "member" | "admin";
   status: "pending" | "accepted" | "revoked" | "expired";
+};
+
+export const metadata: Metadata = {
+  title: "Board Invitation | NextS",
+  description: "Review and accept your NextS board invitation.",
 };
 
 async function resolveParams(
@@ -100,11 +107,8 @@ export default async function BoardInvitePage({ params, searchParams }: BoardInv
   const isErrorMessage = statusType !== "success";
 
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     redirect(withLoginRedirect(token));
   }
 

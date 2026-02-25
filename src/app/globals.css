@@ -3,9 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --brand-primary: #3b82f6;
-  --brand-secondary: #60a5fa;
-  --brand-cta: #f97316;
+  --brand-primary: #0079bf;
+  --brand-secondary: #00c4b4;
+  --brand-cta: #026aa7;
+  --home-bg: #f4f5f7;
+  --home-surface: #ffffff;
+  --home-text-primary: #091e42;
+  --home-text-secondary: #42526e;
+  --home-border-soft: #dfe1e6;
+  --home-shadow-card: 0 8px 24px rgba(9, 30, 66, 0.08);
+  --home-shadow-popover: 0 16px 40px rgba(9, 30, 66, 0.14);
+  --font-display: "Satoshi", "Inter", "SF Pro Display", "Segoe UI", sans-serif;
   --app-header-height: 53px;
 }
 
@@ -20,6 +28,13 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --home-bg: #0b1020;
+    --home-surface: #111827;
+    --home-text-primary: #f9fafb;
+    --home-text-secondary: #cbd5e1;
+    --home-border-soft: #334155;
+    --home-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --home-shadow-popover: 0 16px 40px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -27,6 +42,75 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter-sans), "Segoe UI", sans-serif;
+}
+
+@keyframes home-reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-logo-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes home-timeline-signal {
+  0% {
+    opacity: 0.78;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 0.78;
+    transform: translateY(0);
+  }
+}
+
+.home-reveal {
+  animation: home-reveal-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-logo-track {
+  animation: home-logo-marquee 24s linear infinite;
+}
+
+.home-logo-track:hover {
+  animation-play-state: paused;
+}
+
+.home-kanban-card {
+  transform-origin: center;
+  transition:
+    transform 300ms ease,
+    box-shadow 300ms ease,
+    border-color 220ms ease;
+}
+
+.home-kanban-card:hover {
+  transform: translateY(-2px) rotate(2deg);
+  border-color: #0079bf55;
+  box-shadow: 0 16px 32px rgba(9, 30, 66, 0.15);
+}
+
+.home-mobile-menu {
+  will-change: max-height, opacity;
+}
+
+.home-timeline-pulse {
+  animation: home-timeline-signal 1.8s ease-in-out infinite;
 }
 
 @keyframes rise-in {
@@ -371,6 +455,14 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-reveal,
+  .home-logo-track,
+  .home-kanban-card,
+  .home-timeline-pulse {
+    animation: none !important;
+    transition: none !important;
+  }
+
   .loading-shimmer {
     animation: none !important;
     background-image: none;

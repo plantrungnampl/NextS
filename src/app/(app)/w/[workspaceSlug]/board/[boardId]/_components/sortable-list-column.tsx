@@ -2,7 +2,7 @@
 
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { memo, useMemo } from "react";
 
 import { Card } from "@/components/ui";
@@ -72,43 +72,45 @@ function ListCards({
   workspaceSlug,
 }: ListCardsProps) {
   return (
-    <SortableContext
-      id={`board-cards-${list.id}`}
-      items={cardIds}
-      strategy={verticalListSortingStrategy}
-    >
-      <div className="space-y-2">
-        {visibleCards.map((card) => (
-          <motion.div
-            key={card.id}
-            layout
-            transition={{ damping: 28, stiffness: 360, type: "spring" }}
-          >
-            <SortableCard
-              activeCardId={activeCardId}
-              boardId={boardId}
-              boardName={boardName}
-              card={card}
-              isBoardInteractionLocked={isBoardInteractionLocked}
-              listId={list.id}
-              listOptions={listOptions}
-              membershipRole={membershipRole}
-              onModalStateChange={onCardModalStateChange}
-              onOptimisticBoardChange={onOptimisticBoardChange}
-              presenceUsers={presenceUsers}
-              readOnly={readOnly}
-              showCardCoverOnFront={showCardCoverOnFront}
-              showCompleteStatusOnFront={showCompleteStatusOnFront}
-              viewerId={viewerId}
-              workspaceLabels={workspaceLabels}
-              workspaceMembers={workspaceMembers}
-              workspaceSlug={workspaceSlug}
-            />
-          </motion.div>
-        ))}
-        {!readOnly ? <ListDropZone isEmpty={list.cards.length === 0} listId={list.id} /> : null}
-      </div>
-    </SortableContext>
+    <LazyMotion features={domAnimation}>
+      <SortableContext
+        id={`board-cards-${list.id}`}
+        items={cardIds}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-2">
+          {visibleCards.map((card) => (
+            <m.div
+              key={card.id}
+              layout
+              transition={{ damping: 28, stiffness: 360, type: "spring" }}
+            >
+              <SortableCard
+                activeCardId={activeCardId}
+                boardId={boardId}
+                boardName={boardName}
+                card={card}
+                isBoardInteractionLocked={isBoardInteractionLocked}
+                listId={list.id}
+                listOptions={listOptions}
+                membershipRole={membershipRole}
+                onModalStateChange={onCardModalStateChange}
+                onOptimisticBoardChange={onOptimisticBoardChange}
+                presenceUsers={presenceUsers}
+                readOnly={readOnly}
+                showCardCoverOnFront={showCardCoverOnFront}
+                showCompleteStatusOnFront={showCompleteStatusOnFront}
+                viewerId={viewerId}
+                workspaceLabels={workspaceLabels}
+                workspaceMembers={workspaceMembers}
+                workspaceSlug={workspaceSlug}
+              />
+            </m.div>
+          ))}
+          {!readOnly ? <ListDropZone isEmpty={list.cards.length === 0} listId={list.id} /> : null}
+        </div>
+      </SortableContext>
+    </LazyMotion>
   );
 }
 

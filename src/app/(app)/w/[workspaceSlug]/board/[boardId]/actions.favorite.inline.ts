@@ -6,6 +6,7 @@ import { z } from "zod";
 import { APP_ROUTES } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, resolveBoardAccess } from "./actions.shared";
 
 const toggleBoardFavoriteSchema = z.object({
@@ -87,7 +88,7 @@ export async function toggleBoardFavoriteInline(input: {
       ok: true,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not update board favorite.";
+    const message = resolveInlineActionErrorMessage(error, "Could not update board favorite.");
 
     return {
       error: message,

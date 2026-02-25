@@ -9,6 +9,7 @@ import {
   RATE_LIMIT_POLICIES,
   RateLimitExceededError,
 } from "@/core/security/rate-limit";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { hashInviteToken } from "@/lib/invites";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
@@ -56,6 +57,7 @@ function withLoginRedirect(token: string): string {
 }
 
 export async function acceptBoardInvite(formData: FormData) {
+  const authContext = await getOptionalAuthContext();
   const parsed = acceptBoardInviteSchema.safeParse({
     token: formData.get("token"),
   });
@@ -66,12 +68,7 @@ export async function acceptBoardInvite(formData: FormData) {
 
   const token = parsed.data.token;
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  if (!authContext) {
     redirect(withLoginRedirect(token));
   }
 
@@ -80,7 +77,7 @@ export async function acceptBoardInvite(formData: FormData) {
   try {
     await enforceRateLimit({
       policy: RATE_LIMIT_POLICIES.inviteAccept,
-      subjectParts: [`board-token:${tokenHash}`, `user:${user.id}`],
+      subjectParts: [`board-token:${tokenHash}`, `user:${authContext.userId}`],
       supabase,
     });
   } catch (error) {

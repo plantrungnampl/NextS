@@ -6,6 +6,7 @@ import { z } from "zod";
 import { APP_ROUTES, sanitizeUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import type { BoardPermissionLevel, BoardSettings } from "./types";
 
@@ -167,7 +168,7 @@ export async function renameBoardInline(input: {
 
     return { name: sanitizedName, ok: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not rename board.";
+    const message = resolveInlineActionErrorMessage(error, "Could not rename board.");
     return { error: message, ok: false };
   }
 }
@@ -217,7 +218,7 @@ export async function archiveBoardInline(input: {
 
     return { ok: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not archive board.";
+    const message = resolveInlineActionErrorMessage(error, "Could not archive board.");
     return { error: message, ok: false };
   }
 }
@@ -285,7 +286,7 @@ export async function updateBoardSettingsInline(input: {
       settings: toBoardSettings(boardRow as BoardSettingsRow),
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not update board settings.";
+    const message = resolveInlineActionErrorMessage(error, "Could not update board settings.");
     return { error: message, ok: false };
   }
 }

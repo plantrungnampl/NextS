@@ -1,5 +1,6 @@
 import "server-only";
 
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { buildTypedCards } from "./data";
@@ -22,13 +23,8 @@ export async function getBoardSnapshotData(
   workspaceSlug: string,
   boardId: string,
 ): Promise<BoardSnapshotData> {
+  const { userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("UNAUTHORIZED");
-  }
 
   const { data: board } = await supabase
     .from("boards")
@@ -45,7 +41,7 @@ export async function getBoardSnapshotData(
     .from("workspace_members")
     .select("role")
     .eq("workspace_id", boardContext.workspace_id)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
   const typedMembership = ((membership ?? []) as { role: WorkspaceRole }[])[0] ?? null;
   const canReadBoard = boardContext.visibility === "public" || typedMembership !== null;
   if (!canReadBoard) {
@@ -72,7 +68,7 @@ export async function getBoardSnapshotData(
     .order("position", { ascending: true });
   const { data: cards } = await supabase
     .from("cards")
-    .select("id, title, list_id, position, description, due_at")
+    .select("id, title, list_id, position, description, due_at, updated_at")
     .eq("board_id", boardContext.id)
     .is("archived_at", null)
     .order("position", { ascending: true });
@@ -90,11 +86,12 @@ export async function getBoardSnapshotData(
     list_id: string;
     position: number | string;
     title: string;
+    updated_at: string | null;
   }[];
   const typedCards = await buildTypedCards({
     rawCards,
     supabase,
-    viewerId: user.id,
+    viewerId: userId,
     workspaceMembersById: new Map(),
   });
 

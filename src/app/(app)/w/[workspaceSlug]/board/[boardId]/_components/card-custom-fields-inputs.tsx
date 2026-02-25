@@ -132,22 +132,22 @@ export function CardCustomFieldsInputs({
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      <label className="space-y-1">
-        <span className="text-sm text-slate-300">Priority</span>
+      <div className="space-y-1">
+        <p className="text-sm text-slate-300">Priority</p>
         <PriorityDropdown
           disabled={!isEditing || !canWrite}
           onValueChange={onPriorityChange}
           value={priority}
         />
-      </label>
-      <label className="space-y-1">
-        <span className="text-sm text-slate-300">Status</span>
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm text-slate-300">Status</p>
         <StatusDropdown
           disabled={!canWrite}
           onValueChange={onStatusChange}
           value={status}
         />
-      </label>
+      </div>
       <label className="space-y-1">
         <span className="text-sm text-slate-300">Effort</span>
         <input

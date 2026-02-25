@@ -111,7 +111,7 @@ function InviteCreateForm({ workspaceSlug }: { workspaceSlug: string }) {
         </select>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs text-slate-300">&nbsp;</Label>
+        <span aria-hidden className="block text-xs text-slate-300">&nbsp;</span>
         <SubmitButton className="min-h-10 w-full" pendingLabel="Creating invite...">
           Create invite
         </SubmitButton>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import {
   assignMemberSchema,
@@ -23,14 +24,6 @@ function parseAssignMemberFormData(formData: FormData) {
     userId: formData.get("userId"),
     workspaceSlug: formData.get("workspaceSlug"),
   });
-}
-
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
 }
 
 async function persistAssignCardMember(input: {
@@ -157,7 +150,7 @@ export async function assignCardMemberInline(
     return await persistAssignCardMember(parsed.data);
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to assign member."),
+      error: resolveInlineActionErrorMessage(error, "Failed to assign member."),
       ok: false,
     };
   }
@@ -175,7 +168,7 @@ export async function unassignCardMemberInline(
     return await persistUnassignCardMember(parsed.data);
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to unassign member."),
+      error: resolveInlineActionErrorMessage(error, "Failed to unassign member."),
       ok: false,
     };
   }

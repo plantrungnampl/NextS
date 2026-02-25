@@ -7,8 +7,15 @@ import {
 import { APP_ROUTES } from "@/core";
 import { cn } from "@/shared";
 
-import type { BoardRecord, BoardVisibility, WorkspaceRole } from "../types";
+import type {
+  BoardRecord,
+  BoardVisibility,
+  LabelRecord,
+  WorkspaceMemberRecord,
+  WorkspaceRole,
+} from "../types";
 import { BoardHeroFavoriteButton } from "./board-hero-favorite-button";
+import { BoardHeroFiltersButton } from "./board-hero-filters-button";
 import { BoardHeroMoreMenu } from "./board-hero-more-menu";
 import { BoardShareDialog } from "./board-share-dialog";
 import { BoardHeroVisibilityControls } from "./board-hero-visibility-controls";
@@ -19,14 +26,20 @@ export function BoardHero({
   canWriteBoard,
   role,
   visibility,
+  viewerId,
   workspaceName,
+  workspaceLabels,
+  workspaceMembers,
   workspaceSlug,
 }: {
   board: BoardRecord;
   canWriteBoard: boolean;
   role: WorkspaceRole;
   visibility: BoardVisibility;
+  viewerId: string;
   workspaceName: string;
+  workspaceLabels: LabelRecord[];
+  workspaceMembers: WorkspaceMemberRecord[];
   workspaceSlug: string;
 }) {
   const isReadOnly = !canWriteBoard;
@@ -58,7 +71,11 @@ export function BoardHero({
             </span>
             <BoardHeroToolbarIconButton ariaLabel="Automation" iconKey="automation" />
             <BoardHeroToolbarIconButton ariaLabel="Power-ups" iconKey="powerUps" />
-            <BoardHeroToolbarIconButton ariaLabel="Board filters" iconKey="filters" />
+            <BoardHeroFiltersButton
+              viewerId={viewerId}
+              workspaceLabels={workspaceLabels}
+              workspaceMembers={workspaceMembers}
+            />
             <BoardHeroFavoriteButton
               boardId={board.id}
               initialIsFavorite={board.isFavorite}

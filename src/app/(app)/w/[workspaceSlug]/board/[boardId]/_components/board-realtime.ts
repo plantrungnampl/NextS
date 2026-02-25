@@ -75,6 +75,120 @@ function extractPresenceUsers(channel: RealtimeChannel): PresenceUser[] {
   );
 }
 
+function toPresenceTrackPayload(
+  viewer: BoardViewer,
+  presencePayload?: {
+    activeCardId?: string | null;
+    draggingCardId?: string | null;
+    draggingListId?: string | null;
+  },
+) {
+  return {
+    activeCardId: presencePayload?.activeCardId ?? null,
+    displayName: viewer.displayName,
+    draggingCardId: presencePayload?.draggingCardId ?? null,
+    draggingListId: presencePayload?.draggingListId ?? null,
+    email: viewer.email,
+    userId: viewer.id,
+  };
+}
+
+function subscribeBoardActivity(params: {
+  boardId: string;
+  channel: RealtimeChannel;
+  onRemoteActivity: (action?: string | null, boardVersionAfter?: number) => void;
+  shouldIgnoreMutationId?: (mutationId?: string) => boolean;
+  viewerId: string;
+}) {
+  params.channel.on(
+    "postgres_changes",
+    {
+      event: "INSERT",
+      filter: `board_id=eq.${params.boardId}`,
+      schema: "public",
+      table: "activity_events",
+    },
+    (payload: RealtimePostgresInsertPayload<ActivityInsertPayload>) => {
+      const inserted = payload.new;
+      const mutationId = inserted.metadata?.mutationId;
+      if (params.shouldIgnoreMutationId?.(mutationId)) {
+        return;
+      }
+
+      if (inserted.actor_id && inserted.actor_id === params.viewerId && !mutationId) {
+        return;
+      }
+
+      const boardVersionAfterRaw = inserted.metadata?.boardVersionAfter;
+      const boardVersionAfter =
+        typeof boardVersionAfterRaw === "number"
+          ? boardVersionAfterRaw
+          : typeof boardVersionAfterRaw === "string"
+            ? Number.parseInt(boardVersionAfterRaw, 10)
+            : undefined;
+
+      params.onRemoteActivity(
+        inserted.action,
+        Number.isFinite(boardVersionAfter) ? boardVersionAfter : undefined,
+      );
+    },
+  );
+}
+
+async function createBoardRealtimeChannel(params: {
+  boardId: string;
+  onRemoteActivity: (action?: string | null, boardVersionAfter?: number) => void;
+  presencePayload?: {
+    activeCardId?: string | null;
+    draggingCardId?: string | null;
+    draggingListId?: string | null;
+  };
+  setPresenceUsers: (users: PresenceUser[]) => void;
+  shouldIgnoreMutationId?: (mutationId?: string) => boolean;
+  supabase: ReturnType<typeof createBrowserSupabaseClient>;
+  viewer: BoardViewer;
+}): Promise<RealtimeChannel> {
+  try {
+    const response = await fetch("/api/auth/supabase-token", { cache: "no-store" });
+    if (response.ok) {
+      const payload = (await response.json()) as { token?: string };
+      if (payload.token) {
+        params.supabase.realtime.setAuth(payload.token);
+      }
+    }
+  } catch {
+    // Keep channel setup resilient in case token endpoint is temporarily unavailable.
+  }
+
+  const channel = params.supabase.channel(`board-live:${params.boardId}`, {
+    config: {
+      presence: { key: params.viewer.id },
+    },
+  });
+
+  channel.on("presence", { event: "sync" }, () => {
+    params.setPresenceUsers(extractPresenceUsers(channel));
+  });
+
+  subscribeBoardActivity({
+    boardId: params.boardId,
+    channel,
+    onRemoteActivity: params.onRemoteActivity,
+    shouldIgnoreMutationId: params.shouldIgnoreMutationId,
+    viewerId: params.viewer.id,
+  });
+
+  channel.subscribe((status) => {
+    if (status !== "SUBSCRIBED") {
+      return;
+    }
+
+    void channel.track(toPresenceTrackPayload(params.viewer, params.presencePayload));
+  });
+
+  return channel;
+}
+
 export function useBoardRealtimePresence({
   boardId,
   presencePayload,
@@ -102,71 +216,37 @@ export function useBoardRealtimePresence({
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
-    const channel = supabase.channel(`board-live:${boardId}`, {
-      config: {
-        presence: { key: viewer.id },
-      },
-    });
+    let cancelled = false;
 
-    channel.on("presence", { event: "sync" }, () => {
-      setPresenceUsers(extractPresenceUsers(channel));
-    });
+    const connect = async () => {
+      const channel = await createBoardRealtimeChannel({
+        boardId,
+        onRemoteActivity,
+        presencePayload: presencePayloadRef.current,
+        setPresenceUsers,
+        shouldIgnoreMutationId,
+        supabase,
+        viewer,
+      });
 
-    channel.on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        filter: `board_id=eq.${boardId}`,
-        schema: "public",
-        table: "activity_events",
-      },
-      (payload: RealtimePostgresInsertPayload<ActivityInsertPayload>) => {
-        const inserted = payload.new;
-        const mutationId = inserted.metadata?.mutationId;
-        if (shouldIgnoreMutationId?.(mutationId)) {
-          return;
-        }
-
-        // Keep self-noise low for events without mutation identity, while still
-        // allowing same-user multi-tab updates to propagate via distinct mutationId.
-        if (inserted.actor_id && inserted.actor_id === viewer.id && !mutationId) {
-          return;
-        }
-
-        const boardVersionAfterRaw = inserted.metadata?.boardVersionAfter;
-        const boardVersionAfter =
-          typeof boardVersionAfterRaw === "number"
-            ? boardVersionAfterRaw
-            : typeof boardVersionAfterRaw === "string"
-              ? Number.parseInt(boardVersionAfterRaw, 10)
-              : undefined;
-
-        onRemoteActivity(
-          inserted.action,
-          Number.isFinite(boardVersionAfter) ? boardVersionAfter : undefined,
-        );
-      },
-    );
-
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        const currentPresencePayload = presencePayloadRef.current;
-        void channel.track({
-          activeCardId: currentPresencePayload?.activeCardId ?? null,
-          displayName: viewer.displayName,
-          draggingCardId: currentPresencePayload?.draggingCardId ?? null,
-          draggingListId: currentPresencePayload?.draggingListId ?? null,
-          email: viewer.email,
-          userId: viewer.id,
-        });
+      if (cancelled) {
+        void channel.untrack();
+        void supabase.removeChannel(channel);
+        return;
       }
-    });
-    channelRef.current = channel;
+      channelRef.current = channel;
+    };
+
+    void connect();
 
     return () => {
+      cancelled = true;
+      const channel = channelRef.current;
       channelRef.current = null;
-      void channel.untrack();
-      void supabase.removeChannel(channel);
+      if (channel) {
+        void channel.untrack();
+        void supabase.removeChannel(channel);
+      }
     };
   }, [
     boardId,
@@ -182,14 +262,7 @@ export function useBoardRealtimePresence({
       return;
     }
 
-    void channelRef.current.track({
-      activeCardId: presencePayload?.activeCardId ?? null,
-      displayName: viewer.displayName,
-      draggingCardId: presencePayload?.draggingCardId ?? null,
-      draggingListId: presencePayload?.draggingListId ?? null,
-      email: viewer.email,
-      userId: viewer.id,
-    });
+    void channelRef.current.track(toPresenceTrackPayload(viewer, presencePayload));
   }, [
     presencePayload?.activeCardId,
     presencePayload?.draggingCardId,

@@ -13,12 +13,13 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
+  useSyncExternalStore,
 } from "react";
 import { toast } from "sonner";
 
@@ -41,6 +42,11 @@ import {
   listDragId,
   type DragData,
 } from "./board-dnd-helpers";
+import {
+  applyBoardFiltersToLists,
+  hasActiveBoardFilters,
+  parseBoardFilterStateFromSearchParams,
+} from "./board-filters";
 import { BoardCanvasLayout } from "./board-dnd-canvas-layout";
 import { useBoardDropHandlers, type PersistenceResult } from "./board-dnd-mutations";
 import { resolveActiveCardId, useBoardCanvasState } from "./board-dnd-canvas-state";
@@ -53,6 +59,11 @@ import {
   useBoardSnapshotQuery,
 } from "./board-snapshot-query";
 import { useVisibleCardCountByList } from "./board-visible-cards";
+import {
+  dispatchLocationChangeEvent,
+  getLocationSearchSnapshot,
+  subscribeToLocationChange,
+} from "./board-location-change";
 
 type BoardDndCanvasProps = {
   boardId: string;
@@ -202,7 +213,7 @@ function useSearchShortcutHandler(
 
 const CARD_QUERY_PARAM = "c";
 
-function parseCardIdFromQuery(searchParams: ReturnType<typeof useSearchParams>): string | null {
+function parseCardIdFromQuery(searchParams: URLSearchParams): string | null {
   const value = searchParams.get(CARD_QUERY_PARAM);
   if (typeof value !== "string") {
     return null;
@@ -210,6 +221,15 @@ function parseCardIdFromQuery(searchParams: ReturnType<typeof useSearchParams>):
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function useLocationSearchParamsSnapshot() {
+  const searchSnapshot = useSyncExternalStore(
+    subscribeToLocationChange,
+    getLocationSearchSnapshot,
+    () => "",
+  );
+  return useMemo(() => new URLSearchParams(searchSnapshot), [searchSnapshot]);
 }
 
 function buildBoardUrlWithCardParam(params: {
@@ -256,7 +276,7 @@ export function BoardDndCanvas({
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const searchParams = useSearchParams();
+  const searchParamsSnapshot = useLocationSearchParamsSnapshot();
   const boardSnapshotQueryKey = useMemo(
     () =>
       buildBoardSnapshotQueryKey({
@@ -286,14 +306,26 @@ export function BoardDndCanvas({
   });
   const boardVisualSettings = boardVisualSettingsQuery.data;
   const lists = boardSnapshot.lists;
+  const boardFilterState = useMemo(
+    () => parseBoardFilterStateFromSearchParams(searchParamsSnapshot),
+    [searchParamsSnapshot],
+  );
+  const hasActiveFilters = hasActiveBoardFilters(boardFilterState);
+  const listsForRender = useMemo(
+    () =>
+      applyBoardFiltersToLists(lists, boardFilterState, {
+        viewerId: viewer.id,
+      }),
+    [boardFilterState, lists, viewer.id],
+  );
+  const cardIdFromQuery = parseCardIdFromQuery(searchParamsSnapshot);
+  const activeCardId = cardIdFromQuery && hasCardIdInLists(lists, cardIdFromQuery) ? cardIdFromQuery : null;
   const boardVersion = boardSnapshot.boardVersion;
   const {
-    activeCardId,
     activeDragData,
     getExpectedBoardVersion,
     notice,
     rememberMutationId,
-    setActiveCardId,
     setActiveDragData,
     setBoardVersionSafe,
     setNotice,
@@ -302,18 +334,12 @@ export function BoardDndCanvas({
     cleanupMutationIds,
     initialBoardVersion,
   });
-  const activeCardIdRef = useRef<string | null>(activeCardId);
   const latestListsRef = useRef(lists);
 
   useEffect(() => {
-    activeCardIdRef.current = activeCardId;
-  }, [activeCardId]);
-  useEffect(() => {
     latestListsRef.current = lists;
   }, [lists]);
-  useEffect(() => {
-    setBoardVersionSafe(boardVersion);
-  }, [boardVersion, setBoardVersionSafe]);
+  setBoardVersionSafe(boardVersion);
 
   const updateBoardSnapshotInCache = useCallback(
     (updater: (current: BoardSnapshotQueryData) => BoardSnapshotQueryData) => {
@@ -374,47 +400,29 @@ export function BoardDndCanvas({
     }
 
     window.history.replaceState(window.history.state, "", nextUrl);
+    dispatchLocationChangeEvent();
   }, [pathname]);
-  const applyActiveCardSelection = useCallback((nextCardId: string | null, source: "ui" | "url") => {
-    if (source === "ui") {
-      syncCardQueryParam(nextCardId);
-    }
-
-    if (activeCardIdRef.current === nextCardId) {
-      return;
-    }
-
-    activeCardIdRef.current = nextCardId;
-    setActiveCardId(nextCardId);
-  }, [setActiveCardId, syncCardQueryParam]);
 
   useEffect(() => {
-    const cardIdFromQuery = parseCardIdFromQuery(searchParams);
-    if (!cardIdFromQuery) {
-      applyActiveCardSelection(null, "url");
-      return;
-    }
-
-    if (!hasCardIdInLists(lists, cardIdFromQuery)) {
+    if (cardIdFromQuery && !activeCardId) {
       syncCardQueryParam(null);
-      return;
     }
-
-    applyActiveCardSelection(cardIdFromQuery, "url");
-  }, [applyActiveCardSelection, lists, searchParams, syncCardQueryParam]);
+  }, [activeCardId, cardIdFromQuery, syncCardQueryParam]);
 
   const { hasOpenCardModal, isBoardInteractionLocked } = useBoardInteractionLock({
     activeCardId,
     activeDragData,
     setActiveDragData,
   });
+  const isDragInteractionLocked = isBoardInteractionLocked || hasActiveFilters;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const listIds = useMemo(() => lists.map((list) => listDragId(list.id)), [lists]);
-  const { loadMoreStep, onLoadMoreCards, visibleCardCountByList } = useVisibleCardCountByList(lists);
-  const overlayLabel = getOverlayLabel(activeDragData, lists);
+  const listIds = useMemo(() => listsForRender.map((list) => listDragId(list.id)), [listsForRender]);
+  const { loadMoreStep, onLoadMoreCards, visibleCardCountByList } = useVisibleCardCountByList(listsForRender);
+  const overlayLabel = getOverlayLabel(activeDragData, listsForRender);
+  const filterNotice = hasActiveFilters ? "Đang bật bộ lọc, tắt lọc để kéo thả." : null;
   const presencePayload = useMemo(
     () => ({
       activeCardId,
@@ -424,14 +432,13 @@ export function BoardDndCanvas({
     [activeCardId, activeDragData],
   );
   const handleCardModalStateChange = useCallback((cardId: string, isOpen: boolean) => {
-    const currentActiveCardId = activeCardIdRef.current;
-    const nextActiveCardId = resolveActiveCardId(currentActiveCardId, cardId, isOpen);
-    if (nextActiveCardId === currentActiveCardId) {
+    const nextActiveCardId = resolveActiveCardId(activeCardId, cardId, isOpen);
+    if (nextActiveCardId === activeCardId) {
       return;
     }
 
-    applyActiveCardSelection(nextActiveCardId, "ui");
-  }, [applyActiveCardSelection]);
+    syncCardQueryParam(nextActiveCardId);
+  }, [activeCardId, syncCardQueryParam]);
   const onOptimisticBoardChange = useCallback((change: BoardOptimisticChange) => {
     const previousLists = latestListsRef.current;
     const nextLists = applyBoardOptimisticChange(previousLists, change);
@@ -518,7 +525,7 @@ export function BoardDndCanvas({
   const { handleDragEnd, handleDragStart } = useDragEventHandlers({
     handleCardDrop,
     handleListDrop,
-    isBoardInteractionLocked,
+    isBoardInteractionLocked: isDragInteractionLocked,
     setActiveDragData,
   });
   return (
@@ -530,10 +537,12 @@ export function BoardDndCanvas({
       handleCardModalStateChange={handleCardModalStateChange}
       handleDragEnd={handleDragEnd}
       handleDragStart={handleDragStart}
-      isBoardInteractionLocked={isBoardInteractionLocked}
+      filterNotice={filterNotice}
+      isBoardInteractionLocked={isDragInteractionLocked}
+      isPointerInteractionLocked={isBoardInteractionLocked}
       isReadOnly={isReadOnly}
       listIds={listIds}
-      lists={lists}
+      lists={listsForRender}
       loadMoreStep={loadMoreStep}
       membershipRole={membershipRole}
       notice={notice}

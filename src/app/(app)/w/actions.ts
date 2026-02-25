@@ -15,6 +15,7 @@ import {
   RATE_LIMIT_POLICIES,
   RateLimitExceededError,
 } from "@/core/security/rate-limit";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 const createWorkspaceSchema = z.object({
@@ -38,21 +39,13 @@ type WorkspaceRecord = { id: string; slug: string };
 type WorkspaceMembershipRecord = { role: string };
 type BoardRecord = { id: string };
 
-async function fetchAuthenticatedUser(supabase: SupabaseClient): Promise<{ id: string } | null> {
-  const {
-    data: { user },
-    error,
-  } = await withTimeout(
-    supabase.auth.getUser(),
-    SUPABASE_REQUEST_TIMEOUT_MS,
-    "Auth request timed out. Please try again.",
-  );
-
-  if (error || !user) {
+async function fetchAuthenticatedUser(): Promise<{ id: string } | null> {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     return null;
   }
 
-  return { id: user.id };
+  return { id: authContext.userId };
 }
 
 async function enforceWorkspaceMutationRateLimit(params: {
@@ -267,7 +260,7 @@ export async function createWorkspace(formData: FormData) {
     redirect(withStatusMessage(APP_ROUTES.workspace.index, "Workspace name must be 3-120 characters."));
   }
 
-  const user = await fetchAuthenticatedUser(supabase);
+  const user = await fetchAuthenticatedUser();
   if (!user) {
     redirect(withStatusMessage(APP_ROUTES.login, "Please log in again."));
   }
@@ -343,7 +336,7 @@ export async function createBoard(formData: FormData) {
     redirect(withCreateBoardError("Board title and workspace are required.", fallbackWorkspaceSlug));
   }
 
-  const user = await fetchAuthenticatedUser(supabase);
+  const user = await fetchAuthenticatedUser();
   if (!user) {
     redirect(withStatusMessage(APP_ROUTES.login, "Please log in again."));
   }

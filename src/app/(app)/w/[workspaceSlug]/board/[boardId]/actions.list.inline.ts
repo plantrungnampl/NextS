@@ -6,6 +6,7 @@ import { z } from "zod";
 import { sanitizeNullableUserText, sanitizeUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, fetchCardsForBoard, fetchOrderedLists, logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import { nextPositionFromTail } from "./utils";
 
@@ -154,7 +155,7 @@ export async function createListInline(input: {
       ok: true,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create list.";
+    const message = resolveInlineActionErrorMessage(error, "Failed to create list.");
     return {
       error: message,
       ok: false,
@@ -220,7 +221,7 @@ export async function renameListInline(input: {
       ok: true,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to rename list.";
+    const message = resolveInlineActionErrorMessage(error, "Failed to rename list.");
     return {
       error: message,
       ok: false,
@@ -301,7 +302,7 @@ export async function createCardInline(input: {
       ok: true,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create card.";
+    const message = resolveInlineActionErrorMessage(error, "Failed to create card.");
     return {
       error: message,
       ok: false,
@@ -367,7 +368,7 @@ export async function renameCardInline(input: {
       ok: true,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to rename card.";
+    const message = resolveInlineActionErrorMessage(error, "Failed to rename card.");
     return {
       error: message,
       ok: false,
@@ -440,7 +441,7 @@ export async function archiveListInline(input: {
       ok: true,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to archive list.";
+    const message = resolveInlineActionErrorMessage(error, "Failed to archive list.");
     return {
       error: message,
       ok: false,

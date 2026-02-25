@@ -7,6 +7,7 @@ import { z } from "zod";
 import { APP_ROUTES, sanitizeNullableUserText, sanitizeUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import {
   boardRoute,
   fetchCardsForBoard,
@@ -413,14 +414,6 @@ function parseArchiveCardFormData(formData: FormData) {
   });
 }
 
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
-
 async function persistArchiveCard(
   payload: z.infer<typeof archiveCardSchema>,
 ): Promise<ArchiveCardInlineResult> {
@@ -486,6 +479,6 @@ export async function archiveCardInline(
 
     return { archivedCardId: persistResult.archivedCardId, ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to archive card."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to archive card."), ok: false };
   }
 }

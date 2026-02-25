@@ -126,3 +126,144 @@ Working set (files/ids/commands):
 - `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-hero-more-menu.tsx`
 - `cd /Data/NextS/nexts-app && npm run lint -- --quiet`
 - `cd /Data/NextS/nexts-app && npm run build`
+---
+Goal (incl. success criteria):
+- Implement Trello-like Board Filters in board topbar with real filtering on canvas and URL-persisted state.
+- Success criteria:
+  - Clicking `Board filters` opens full Vietnamese filter panel.
+  - Filters apply live to board cards/lists with `Khớp bất kỳ` / `Khớp tất cả` behavior.
+  - Filter state persists via URL params (`bf_*`) across reload.
+  - Drag and drop is disabled while filters are active, without blocking general board interactions.
+  - Lint/build pass and dedicated E2E spec for filter panel exists.
+
+Constraints/Assumptions:
+- No new dependency.
+- Keep App Router + current board visual style.
+- Existing query params (`c`, `view`, `views`) remain intact.
+
+Key decisions:
+- Added canonical filter domain in `_components/board-filters.ts`.
+- Added shared location change utility in `_components/board-location-change.ts`.
+- Replaced tooltip-only filter icon with functional `BoardHeroFiltersButton` popover.
+- Applied filtering on render list set only; kept snapshot/mutation source lists canonical.
+- Introduced separate locks:
+  - pointer lock for card modal state
+  - drag lock for card modal OR active filters.
+- Added `CardRecord.updated_at` for activity-based buckets.
+
+State:
+- Completed: board filters implementation + validation done.
+
+Done:
+- Queried Graphiti before implementation for board hero/canvas context.
+- Added new files:
+  - `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-filters.ts`
+  - `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-location-change.ts`
+  - `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-hero-filters-button.tsx`
+  - `/Data/NextS/nexts-app/e2e/board-filters-panel.spec.ts`
+- Wired filter button into board hero and page data flow.
+- Extended card model/data pipeline with `updated_at`:
+  - `data.ts`, `data.snapshot.ts`, `data.private-inbox-api.ts`, mutation cache fallback card creation.
+- Applied filters into board canvas render path with URL sync and active-filter drag lock notice.
+- Validation:
+  - `cd /Data/NextS/nexts-app && npm run lint -- --quiet` (pass)
+  - `cd /Data/NextS/nexts-app && npm run build` (pass)
+  - `cd /Data/NextS/nexts-app && npm run test:e2e -- e2e/board-filters-panel.spec.ts` (pass, test skipped due missing E2E creds)
+
+Now:
+- Waiting for visual QA and behavior confirmation on real board data.
+
+Next:
+- If requested, extend E2E assertions for members/labels/due/activity buckets and match mode permutations.
+
+Open questions (UNCONFIRMED if needed):
+- None.
+
+Working set (files/ids/commands):
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-filters.ts`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-location-change.ts`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-hero-filters-button.tsx`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-hero.tsx`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/page.tsx`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-dnd-canvas.tsx`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-dnd-canvas-layout.tsx`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-dnd-layout.tsx`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/types.ts`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/data.ts`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/data.snapshot.ts`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/data.private-inbox-api.ts`
+- `/Data/NextS/nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-mutations/cache.ts`
+- `/Data/NextS/nexts-app/e2e/board-filters-panel.spec.ts`
+---
+Goal (incl. success criteria):
+- Implement Trello-like card template flow parity: toggle template in card menu, show template banner in modal, show template badge on front card, and persist in DB.
+- Success criteria:
+  - `Tạo mẫu` is functional (not disabled) and persists after reload.
+  - Modal shows `Đây là thẻ mẫu.` with CTA `Tạo thẻ từ mẫu`.
+  - Front card shows badge `Thẻ này là một mẫu.`.
+  - Copying from template creates a normal card (`is_template = false`).
+  - Lint/build pass.
+
+Constraints/Assumptions:
+- No new dependency.
+- Keep existing card copy flow and open the existing copy panel from template CTA.
+- Preserve existing optimistic board/card mutation patterns.
+
+Key decisions:
+- Persistence is DB-backed via new `cards.is_template` column.
+- `Tạo thẻ từ mẫu` reuses existing `Sao chép thẻ` panel.
+- Copied cards always insert with `is_template = false`.
+
+State:
+- Completed: card template flow implemented and validated.
+
+Done:
+- Added migration `supabase/migrations/20260223193000_card_templates.sql`:
+  - `cards.is_template boolean not null default false`
+  - partial index `cards_is_template_idx`
+- Extended board card model and loaders:
+  - `types.ts` adds `CardRecord.is_template`
+  - `data.ts` loads `id,is_template` with missing-column fallback to `false`
+- Added server action in `actions.card-advanced.ts`:
+  - `toggleCardTemplateInline(formData)`
+  - write-access guard + activity log `template.toggle`
+- Ensured template-copy behavior:
+  - copy insert explicitly sets `is_template: false`
+- Wired UI behavior:
+  - `card-header-options-menu.tsx`: `Tạo mẫu` now toggles state with check indicator
+  - `card-richness-panel.tsx`: template banner + CTA
+  - `card-richness-modern-ui.tsx`: pass `openCopyRequestToken` to header menu
+  - `card-header-options-menu.tsx`: supports external copy-panel open trigger
+  - `card-summary-content.tsx`: template badge on front card
+- Synced optimistic defaults:
+  - `board-dnd-helpers.ts`: optimistic copied card `is_template: false`
+  - `board-mutations/cache.ts`: inline-created card `is_template: false`
+  - patch types extended to include `is_template`
+- Validation:
+  - `cd /Data/NextS/nexts-app && npm run lint -- --quiet` (pass)
+  - `cd /Data/NextS/nexts-app && npm run build` (pass)
+
+Now:
+- Implementation complete and ready for user verification in-browser.
+
+Next:
+- Optional: add/extend E2E coverage for template toggle + banner + copy-from-template flow.
+
+Open questions (UNCONFIRMED if needed):
+- None.
+
+Working set (files/ids/commands):
+- `nexts-app/supabase/migrations/20260223193000_card_templates.sql`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/types.ts`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/data.ts`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/actions.card-advanced.ts`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/card-header-options-menu.tsx`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/card-richness-modern-ui.tsx`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/card-richness-panel.tsx`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/card-summary-content.tsx`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-dnd-helpers.ts`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/board-mutations/cache.ts`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/sortable-list-card.tsx`
+- `nexts-app/src/app/(app)/w/[workspaceSlug]/board/[boardId]/_components/card-richness-custom-fields-section.tsx`
+- `cd /Data/NextS/nexts-app && npm run lint -- --quiet`
+- `cd /Data/NextS/nexts-app && npm run build`

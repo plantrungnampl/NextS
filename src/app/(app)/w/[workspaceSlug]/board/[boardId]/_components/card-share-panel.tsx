@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   ChevronLeft,
   Copy,
@@ -106,11 +107,8 @@ export function CardSharePanel({
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const [showQr, setShowQr] = useState(false);
 
-  const cardPath = useMemo(() => buildCardPath(pathname, cardId), [cardId, pathname]);
-  const cardUrl = useMemo(
-    () => (origin.length > 0 ? `${origin}${cardPath}` : cardPath),
-    [cardPath, origin],
-  );
+  const cardPath = buildCardPath(pathname, cardId);
+  const cardUrl = origin.length > 0 ? `${origin}${cardPath}` : cardPath;
   const embedHtml = useMemo(() => {
     const safeTitle = escapeHtml(cardTitle);
     return `<blockquote class="trello-card"><a href="${cardUrl}">${safeTitle}</a></blockquote><script src="https://p.trellocdn.com/embed.min.js"></script>`;
@@ -136,11 +134,7 @@ export function CardSharePanel({
       ),
     [boardId, cardId, cardTitle, cardUrl, workspaceSlug],
   );
-  const qrImageUrl = useMemo(
-    () =>
-      `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(cardUrl)}`,
-    [cardUrl],
-  );
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(cardUrl)}`;
 
   return (
     <div className="space-y-2 p-3">
@@ -205,10 +199,13 @@ export function CardSharePanel({
         </button>
         {showQr ? (
           <div className="rounded-md border border-white/10 bg-white p-2">
-            <img
+            <Image
               alt="QR code for card link"
               className="h-28 w-28"
+              height={112}
               src={qrImageUrl}
+              unoptimized
+              width={112}
             />
           </div>
         ) : null}

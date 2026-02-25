@@ -1,9 +1,21 @@
-import type { LabelHTMLAttributes } from "react";
+import * as LabelPrimitive from "@radix-ui/react-label";
+import { forwardRef, type ComponentPropsWithoutRef, type ElementRef } from "react";
 
 import { cn } from "@/shared";
 
-type LabelProps = LabelHTMLAttributes<HTMLLabelElement>;
+type LabelProps = ComponentPropsWithoutRef<typeof LabelPrimitive.Root>;
 
-export function Label({ className, ...props }: LabelProps) {
-  return <label className={cn("text-sm font-medium text-slate-700", className)} {...props} />;
-}
+export const Label = forwardRef<ElementRef<typeof LabelPrimitive.Root>, LabelProps>(function Label(
+  { className, ...props },
+  ref,
+) {
+  return (
+    <LabelPrimitive.Root
+      className={cn("text-sm font-medium text-slate-700", className)}
+      ref={ref}
+      {...props}
+    />
+  );
+});
+
+Label.displayName = "Label";

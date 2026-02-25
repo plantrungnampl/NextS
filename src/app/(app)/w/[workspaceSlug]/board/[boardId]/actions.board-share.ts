@@ -16,8 +16,10 @@ import {
   inviteExpiryFromNow,
   normalizeInviteEmail,
 } from "@/lib/invites";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, logBoardActivity } from "./actions.shared";
 
 export type BoardShareRole = "viewer" | "member" | "admin";
@@ -88,20 +90,12 @@ const manageBoardInviteSchema = boardShareBaseSchema.extend({
 
 const updateBoardMemberRoleSchema = boardShareBaseSchema.extend({
   nextRole: boardShareInviteRoleSchema,
-  userId: z.string().uuid(),
+  userId: z.string().trim().min(1).max(255),
 });
 
 const removeBoardMemberSchema = boardShareBaseSchema.extend({
-  userId: z.string().uuid(),
+  userId: z.string().trim().min(1).max(255),
 });
-
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
 
 function buildBoardInviteLink(token: string): string {
   const invitePath = APP_ROUTES.inviteBoardByToken(token);
@@ -141,6 +135,7 @@ async function getRateLimitError(params: {
 type ResolvedBoardShareAccess = {
   canManage: boolean;
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>;
+  userEmail: string | null;
   userId: string;
   workspaceId: string;
 };
@@ -149,15 +144,12 @@ async function resolveBoardShareAccess(params: {
   boardId: string;
   workspaceSlug: string;
 }): Promise<ResolvedBoardShareAccess> {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     throw new Error("Authentication required.");
   }
+
+  const supabase = await createServerSupabaseClient();
 
   const { data: board, error: boardError } = await supabase
     .from("boards")
@@ -197,7 +189,8 @@ async function resolveBoardShareAccess(params: {
   return {
     canManage: Boolean(canManage),
     supabase,
-    userId: user.id,
+    userEmail: authContext.email,
+    userId: authContext.userId,
     workspaceId: typedBoard.workspace_id,
   };
 }
@@ -344,7 +337,7 @@ export async function createBoardInviteInline(input: {
   }
 
   try {
-    const { canManage, supabase, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
+    const { canManage, supabase, userEmail, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
     if (!canManage) {
       return {
         error: "Only board admin can manage share settings.",
@@ -366,11 +359,7 @@ export async function createBoardInviteInline(input: {
     }
 
     const invitedEmail = normalizeInviteEmail(parsed.data.invitedEmail);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (invitedEmail === normalizeInviteEmail(user?.email ?? "")) {
+    if (invitedEmail === normalizeInviteEmail(userEmail ?? "")) {
       return {
         error: "You cannot invite your own account.",
         ok: false,
@@ -478,7 +467,7 @@ export async function createBoardInviteInline(input: {
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Could not create board invite."),
+      error: resolveInlineActionErrorMessage(error, "Could not create board invite."),
       ok: false,
     };
   }
@@ -582,7 +571,7 @@ export async function resendBoardInviteInline(input: {
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Could not resend invite."),
+      error: resolveInlineActionErrorMessage(error, "Could not resend invite."),
       ok: false,
     };
   }
@@ -656,7 +645,7 @@ export async function revokeBoardInviteInline(input: {
     return { ok: true };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Could not revoke invite."),
+      error: resolveInlineActionErrorMessage(error, "Could not revoke invite."),
       ok: false,
     };
   }
@@ -734,7 +723,7 @@ export async function updateBoardMemberRoleInline(input: {
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Could not update member role."),
+      error: resolveInlineActionErrorMessage(error, "Could not update member role."),
       ok: false,
     };
   }
@@ -808,7 +797,7 @@ export async function removeBoardMemberInline(input: {
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Could not remove board member."),
+      error: resolveInlineActionErrorMessage(error, "Could not remove board member."),
       ok: false,
     };
   }

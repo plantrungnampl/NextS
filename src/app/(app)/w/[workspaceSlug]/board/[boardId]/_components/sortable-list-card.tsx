@@ -3,7 +3,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -203,11 +203,17 @@ type SortableCardProps = {
 type CardOptimisticPatch = {
   assignees?: WorkspaceMemberRecord[];
   completed_at?: string | null;
+  coverAttachmentId?: string | null;
+  coverColor?: string | null;
+  coverColorblindFriendly?: boolean;
+  coverMode?: CardRecord["coverMode"];
+  coverSize?: CardRecord["coverSize"];
   due_at?: string | null;
   effort?: string | null;
   has_due_time?: boolean;
   has_start_time?: boolean;
   is_completed?: boolean;
+  is_template?: boolean;
   labels?: LabelRecord[];
   list_id?: string;
   priority?: string | null;
@@ -223,14 +229,14 @@ type CardOptimisticPatch = {
 };
 
 function useOptimisticCard(card: CardRecord) {
-  const [optimisticCard, setOptimisticCard] = useState(card);
-
-  useEffect(() => {
-    setOptimisticCard(card);
-  }, [card]);
+  const [optimisticPatch, setOptimisticPatch] = useState<CardOptimisticPatch>({});
+  const optimisticCard = useMemo(
+    () => ({ ...card, ...optimisticPatch }),
+    [card, optimisticPatch],
+  );
 
   const applyPatch = (patch: CardOptimisticPatch) => {
-    setOptimisticCard((previous) => ({ ...previous, ...patch }));
+    setOptimisticPatch((previous) => ({ ...previous, ...patch }));
   };
 
   return { applyPatch, optimisticCard };

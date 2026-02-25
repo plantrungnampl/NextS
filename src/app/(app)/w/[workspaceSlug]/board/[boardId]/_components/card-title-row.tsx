@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { CardRecord } from "../types";
 import { useRenameCardTitleMutation } from "./board-mutations/hooks";
@@ -24,15 +24,15 @@ function ModalTitleInlineEditor({
   title: string;
   workspaceSlug: string;
 }) {
-  const [draftTitle, setDraftTitle] = useState(title);
+  const [draftTitle, setDraftTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const formRef = useRef<HTMLFormElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const renameCardMutation = useRenameCardTitleMutation({
     boardId,
     cardId,
     onRollbackTitle: () => {
       onOptimisticTitleChange?.(title);
-      setDraftTitle(title);
+      setDraftTitle("");
     },
     onSuccessTitle: (nextTitle) => {
       onOptimisticTitleChange?.(nextTitle);
@@ -41,9 +41,18 @@ function ModalTitleInlineEditor({
   });
 
   const reset = () => {
-    setDraftTitle(title);
+    setDraftTitle("");
     setIsEditingTitle(false);
   };
+
+  useEffect(() => {
+    if (!isEditingTitle || !inputRef.current) {
+      return;
+    }
+
+    inputRef.current.focus();
+    inputRef.current.select();
+  }, [isEditingTitle]);
 
   if (!canWrite) {
     return (
@@ -61,24 +70,8 @@ function ModalTitleInlineEditor({
 
   if (isEditingTitle) {
     return (
-      <form
-        className="w-full"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const trimmed = draftTitle.trim();
-          if (trimmed.length < 1 || trimmed === title || renameCardMutation.isPending) {
-            reset();
-            return;
-          }
-
-          onOptimisticTitleChange?.(trimmed);
-          setIsEditingTitle(false);
-          renameCardMutation.mutate({ title: trimmed });
-        }}
-        ref={formRef}
-      >
+      <div className="w-full">
         <input
-          autoFocus
           className="h-14 w-full rounded-md border border-slate-500 bg-[#2f3035] px-3 text-[42px] font-semibold leading-none text-slate-100 outline-none"
           disabled={renameCardMutation.isPending}
           maxLength={500}
@@ -121,10 +114,11 @@ function ModalTitleInlineEditor({
             }
           }}
           required
+          ref={inputRef}
           type="text"
           value={draftTitle}
         />
-      </form>
+      </div>
     );
   }
 

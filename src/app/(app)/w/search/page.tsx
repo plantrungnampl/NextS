@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Button, Input } from "@/components/ui";
 import { APP_ROUTES } from "@/core";
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { getFirstQueryParamValue, isPromise } from "@/shared";
 
@@ -322,18 +322,13 @@ function CardResults({
 }
 
 export default async function WorkspaceSearchPage({ searchParams }: SearchPageProps) {
+  const { userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect(APP_ROUTES.login);
-  }
 
   const resolvedSearchParams = await resolveSearchParams(searchParams);
   const queryText = (getFirstQueryParamValue(resolvedSearchParams.q) ?? "").trim();
   const workspaceFilterSlug = getFirstQueryParamValue(resolvedSearchParams.workspace);
-  const context = await loadSearchContext(user.id, workspaceFilterSlug);
+  const context = await loadSearchContext(userId, workspaceFilterSlug);
   const results = await searchWorkspaceContent(queryText, context);
 
   return (

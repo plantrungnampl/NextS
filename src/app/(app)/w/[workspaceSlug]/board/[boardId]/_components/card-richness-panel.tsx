@@ -1,9 +1,11 @@
 "use client";
 /* eslint-disable max-lines */
 
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
+import { LayoutTemplate } from "lucide-react";
+import Image from "next/image";
 import { useIsMutating } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScrollArea } from "@/components/ui";
 
@@ -39,6 +41,7 @@ import {
   TopBar,
   UtilityBar,
 } from "./card-richness-modern-ui";
+import { CardCreateFromTemplatePopover } from "./card-create-from-template-popover";
 import { CardRichnessDescriptionSection } from "./card-richness-description-section";
 import { CardModalContainer, useMobileSheetBreakpoint } from "./card-richness-modal-shell";
 import { CardTitleRow } from "./card-title-row";
@@ -77,8 +80,9 @@ type CardRichnessPanelProps = {
 type CardModalBodyProps = {
   boardId: string;
   boardName: string;
+  canManageAllAttachments: boolean;
   canManageAllComments: boolean;
-  canManageLabels: boolean;
+  canManageWorkspaceLabels: boolean;
   canWrite: boolean;
   card: CardRecord;
   checklistHasLoadingError: boolean;
@@ -100,16 +104,55 @@ type CardModalBodyProps = {
   onOptimisticCustomFieldsChange?: (patch: CardCustomFieldsOptimisticPatch) => void;
   resolvedSnapshot: typeof EMPTY_CARD_RICHNESS;
   viewerId: string;
+  viewerMember: WorkspaceMemberRecord | null;
   workspaceLabels: LabelRecord[];
   workspaceMembers: WorkspaceMemberRecord[];
   workspaceSlug: string;
 };
 
+function CardModalCoverBanner({ card }: { card: CardRecord }) {
+  const coverMode = card.coverMode ?? "none";
+  const coverSize = card.coverSize ?? "full";
+  const coverColor = card.coverColor ?? null;
+  const coverSrc = card.coverAttachmentId ? `/api/attachments/${card.coverAttachmentId}` : null;
+  const heightClass = coverSize === "header" ? "h-14" : "h-40";
+
+  if (coverMode === "none") {
+    return null;
+  }
+
+  if (coverMode === "color" && coverColor) {
+    return (
+      <div
+        className={`overflow-hidden rounded-lg border border-white/10 ${heightClass}`}
+        style={{ backgroundColor: coverColor }}
+      />
+    );
+  }
+
+  if (coverMode === "attachment" && coverSrc) {
+    return (
+      <div className={`overflow-hidden rounded-lg border border-white/10 bg-slate-950/80 ${heightClass}`}>
+        <Image
+          alt={`${card.title} cover`}
+          className="h-full w-full object-cover"
+          height={160}
+          src={coverSrc}
+          unoptimized
+          width={720}
+        />
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function ActivePanelContent({
   activePanel,
   boardId,
+  canManageAllAttachments,
   canManageAllComments,
-  canManageLabels,
   canWrite,
   card,
   hasLoadingError,
@@ -127,7 +170,7 @@ function ActivePanelContent({
   workspaceSlug,
 }: {
   activePanel: QuickPanel;
-} & Omit<CardModalBodyProps, "boardName" | "checklistHasLoadingError" | "checklistIsLoading" | "checklistQueryKey" | "checklists" | "isClosingSync" | "onChecklistRefresh" | "pendingMutationCount">) {
+} & Omit<CardModalBodyProps, "boardName" | "canManageWorkspaceLabels" | "checklistHasLoadingError" | "checklistIsLoading" | "checklistQueryKey" | "checklists" | "isClosingSync" | "onChecklistRefresh" | "pendingMutationCount">) {
   const shouldRenderPanelDetails = Boolean(activePanel && activePanel !== "checklist");
   const hasAttachments = resolvedSnapshot.attachments.length > 0;
 
@@ -164,7 +207,7 @@ function ActivePanelContent({
         <CardAttachmentsSection
           attachments={resolvedSnapshot.attachments}
           boardId={boardId}
-          canManageAllAttachments={canManageLabels}
+          canManageAllAttachments={canManageAllAttachments}
           canWrite={canWrite}
           cardId={card.id}
           richnessQueryKey={richnessQueryKey}
@@ -193,8 +236,9 @@ function ActivePanelContent({
 function CardModalBody({
   boardId,
   boardName,
+  canManageAllAttachments,
   canManageAllComments,
-  canManageLabels,
+  canManageWorkspaceLabels,
   canWrite,
   card,
   checklistHasLoadingError,
@@ -216,6 +260,7 @@ function CardModalBody({
   onOptimisticCustomFieldsChange,
   resolvedSnapshot,
   viewerId,
+  viewerMember,
   workspaceLabels,
   workspaceMembers,
   workspaceSlug,
@@ -245,6 +290,7 @@ function CardModalBody({
 
   return (
     <div className="space-y-6 px-6 py-5" key={card.id}>
+      <CardModalCoverBanner card={card} />
       <TopBar
         boardId={boardId}
         boardName={boardName}
@@ -256,8 +302,29 @@ function CardModalBody({
         onOptimisticBoardChange={onOptimisticBoardChange}
         onOptimisticCardPatch={onOptimisticCustomFieldsChange}
         richnessQueryKey={richnessQueryKey}
+        viewerId={viewerId}
+        viewerMember={viewerMember}
         workspaceSlug={workspaceSlug}
       />
+      {card.is_template ? (
+        <section className="rounded-lg border border-sky-700/60 bg-sky-950/30 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-sky-100">
+              <LayoutTemplate className="h-4 w-4" />
+              Đây là thẻ mẫu.
+            </p>
+            <CardCreateFromTemplatePopover
+              boardId={boardId}
+              canWrite={canWrite}
+              card={card}
+              listOptions={listOptions}
+              onOptimisticBoardChange={onOptimisticBoardChange}
+              richnessQueryKey={richnessQueryKey}
+              workspaceSlug={workspaceSlug}
+            />
+          </div>
+        </section>
+      ) : null}
 
       <div className="space-y-4 border-t border-white/10 pt-5">
         <CardTitleRow
@@ -272,7 +339,7 @@ function CardModalBody({
           activePanel={activePanel}
           boardId={boardId}
           card={card}
-          canManageLabels={canManageLabels}
+          canManageLabels={canManageWorkspaceLabels}
           canWrite={canWrite}
           labels={card.labels}
           onOptimisticLabelsChange={(nextLabels) => {
@@ -345,8 +412,8 @@ function CardModalBody({
       <ActivePanelContent
         activePanel={activePanel}
         boardId={boardId}
+        canManageAllAttachments={canManageAllAttachments}
         canManageAllComments={canManageAllComments}
-        canManageLabels={canManageLabels}
         canWrite={canWrite}
         card={card}
         hasLoadingError={hasLoadingError}
@@ -359,6 +426,7 @@ function CardModalBody({
         richnessQueryKey={richnessQueryKey}
         resolvedSnapshot={resolvedSnapshot}
         viewerId={viewerId}
+        viewerMember={viewerMember}
         workspaceLabels={workspaceLabels}
         workspaceMembers={workspaceMembers}
         workspaceSlug={workspaceSlug}
@@ -389,8 +457,6 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
     workspaceMembers,
     workspaceSlug,
   } = props;
-  const canManageLabels = canWrite && (membershipRole === "owner" || membershipRole === "admin");
-  const canManageAllComments = canManageLabels;
   const [isClosingSync, setIsClosingSync] = useState(false);
   const closeRequestedRef = useRef(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -446,6 +512,14 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
     workspaceSlug,
   });
   const isMobileSheet = useMobileSheetBreakpoint();
+  const viewerMember = useMemo(
+    () => workspaceMembers.find((member) => member.id === viewerId) ?? null,
+    [viewerId, workspaceMembers],
+  );
+  const canManageWorkspaceLabels =
+    canWrite && (membershipRole === "owner" || viewerMember?.role === "owner" || viewerMember?.role === "admin");
+  const canManageAllComments = canWrite && (membershipRole === "owner" || membershipRole === "admin");
+  const canManageAllAttachments = canManageAllComments;
   const CLOSE_SYNC_TIMEOUT_MS = 300;
 
   const finalizeClose = useCallback(() => {
@@ -539,8 +613,9 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
     <CardModalBody
       boardId={boardId}
       boardName={boardName}
+      canManageAllAttachments={canManageAllAttachments}
       canManageAllComments={canManageAllComments}
-      canManageLabels={canManageLabels}
+      canManageWorkspaceLabels={canManageWorkspaceLabels}
       canWrite={canWrite}
       card={card}
       checklistHasLoadingError={checklistHasLoadingError}
@@ -567,6 +642,7 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
       onOptimisticCustomFieldsChange={onOptimisticCustomFieldsChange}
       resolvedSnapshot={resolvedSnapshot}
       viewerId={viewerId}
+      viewerMember={viewerMember}
       workspaceLabels={workspaceLabels}
       workspaceMembers={workspaceMembers}
       workspaceSlug={workspaceSlug}
@@ -580,20 +656,22 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
       isOpen={isOpen}
       onClose={requestClose}
     >
-      <motion.div
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="flex h-full min-h-0 flex-col"
-        initial={{ opacity: 0, scale: 0.985, y: 10 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
-      >
-        {isMobileSheet ? (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth">{cardModalBody}</div>
-        ) : (
-          <ScrollArea className="min-h-0 flex-1" showVerticalScrollbar>
-            {cardModalBody}
-          </ScrollArea>
-        )}
-      </motion.div>
+      <LazyMotion features={domAnimation}>
+        <m.div
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="flex h-full min-h-0 flex-col"
+          initial={{ opacity: 0, scale: 0.985, y: 10 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        >
+          {isMobileSheet ? (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth">{cardModalBody}</div>
+          ) : (
+            <ScrollArea className="min-h-0 flex-1" showVerticalScrollbar>
+              {cardModalBody}
+            </ScrollArea>
+          )}
+        </m.div>
+      </LazyMotion>
     </CardModalContainer>
   );
 }

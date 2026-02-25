@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 type RouteParams = {
@@ -27,14 +28,12 @@ export async function GET(
   context: { params: Promise<RouteParams> },
 ) {
   const { attachmentId } = await context.params;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const supabase = await createServerSupabaseClient();
 
   const { data: attachment, error } = await supabase
     .from("attachments")

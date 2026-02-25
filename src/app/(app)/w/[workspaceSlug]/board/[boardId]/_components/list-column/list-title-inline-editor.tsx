@@ -21,14 +21,14 @@ export function ListTitleInlineEditor({
   title: string;
   workspaceSlug: string;
 }) {
-  const [draftTitle, setDraftTitle] = useState(title);
+  const [draftTitle, setDraftTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const renameMutation = useRenameListMutation({
     boardId,
     listId,
     onRollbackTitle: () => {
-      setDraftTitle(title);
+      setDraftTitle("");
     },
     onSuccessTitle: (nextTitle) => {
       setDraftTitle(nextTitle);
@@ -46,7 +46,7 @@ export function ListTitleInlineEditor({
   }, [isEditingTitle]);
 
   const cancelEditing = () => {
-    setDraftTitle(title);
+    setDraftTitle("");
     setIsEditingTitle(false);
   };
 
@@ -74,13 +74,7 @@ export function ListTitleInlineEditor({
     return (
       <div className="flex items-center gap-2">
         <span className={cn("inline-flex h-2.5 w-2.5 shrink-0 rounded-full", laneColorClass)} />
-        <form
-          className="min-w-0 flex-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submitTitleIfChanged();
-          }}
-        >
+        <div className="min-w-0 flex-1">
           <input
             className="min-h-8 w-full rounded-md border border-cyan-300/70 bg-slate-900/85 px-2 text-sm font-semibold text-slate-100 outline-none ring-1 ring-cyan-300/60 placeholder:text-slate-500"
             data-lane-pan-stop
@@ -108,7 +102,7 @@ export function ListTitleInlineEditor({
             type="text"
             value={draftTitle}
           />
-        </form>
+        </div>
       </div>
     );
   }

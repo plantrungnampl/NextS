@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Clock3, Star } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import { APP_ROUTES } from "@/core";
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { cn, getFirstQueryParamValue } from "@/shared";
 
@@ -351,14 +351,8 @@ function WorkspaceBoardsSection({
 }
 
 export default async function WorkspaceIndexPage({ searchParams }: WorkspacePageProps) {
+  const { userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect(APP_ROUTES.login);
-  }
 
   const resolvedSearchParams = await resolveWorkspaceSearchParams(searchParams);
   const statusMessage = getFirstQueryParamValue(resolvedSearchParams.message);
@@ -367,7 +361,7 @@ export default async function WorkspaceIndexPage({ searchParams }: WorkspacePage
   const createBoardMessage = getFirstQueryParamValue(resolvedSearchParams.createBoardMessage);
   const createBoardType = getFirstQueryParamValue(resolvedSearchParams.createBoardType);
   const { boardsByWorkspaceId, recentBoards, roleByWorkspaceId, workspaceNameById, workspaces } =
-    await getWorkspaceDashboardData(supabase, user.id);
+    await getWorkspaceDashboardData(supabase, userId);
   const firstWorkspaceSlug = workspaces[0]?.slug;
   const requestedWorkspaceSlug = getFirstQueryParamValue(resolvedSearchParams.workspace);
   const availableWorkspaceSlugs = new Set(workspaces.map((workspace) => workspace.slug));

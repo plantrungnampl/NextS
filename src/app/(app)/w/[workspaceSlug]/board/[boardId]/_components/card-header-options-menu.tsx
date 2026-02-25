@@ -11,6 +11,7 @@ import {
   MoveRight,
   Share2,
   SplitSquareHorizontal,
+  UserMinus,
   UserPlus,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -32,8 +33,10 @@ import {
   PopoverContent,
 } from "@/components/ui";
 
+import { toggleCardTemplateInline } from "../actions.card-advanced";
+import { assignCardMemberInline, unassignCardMemberInline } from "../actions.card-richness";
 import { archiveCardInline } from "../actions.forms";
-import type { CardRecord } from "../types";
+import type { CardRecord, WorkspaceMemberRecord } from "../types";
 import { invalidateCardRichnessQuery } from "./board-mutations/invalidation";
 import { CardCopyOptionsDialog, type CardCopySummary } from "./card-copy-options-dialog";
 import { CardMovePanel } from "./card-move-panel";
@@ -41,7 +44,7 @@ import { buildCardModalMutationKey } from "./card-richness-mutation-keys";
 import { CardSharePanel } from "./card-share-panel";
 import type { BoardOptimisticChange } from "./board-dnd-helpers";
 
-type HeaderMenuOptimisticPatch = Partial<Pick<CardRecord, "list_id" | "watchCount" | "watchedByViewer">>;
+type HeaderMenuOptimisticPatch = Partial<Pick<CardRecord, "assignees" | "is_template" | "list_id" | "watchCount" | "watchedByViewer">>;
 type HeaderPanel = "copy" | "move" | "share" | null;
 
 type CardHeaderOptionsMenuProps = {
@@ -56,6 +59,8 @@ type CardHeaderOptionsMenuProps = {
   onOptimisticCardPatch?: (patch: HeaderMenuOptimisticPatch) => void;
   onToggleWatch?: () => void;
   richnessQueryKey?: readonly [string, string, string, string];
+  viewerId: string;
+  viewerMember: WorkspaceMemberRecord | null;
   watchedByViewer?: boolean;
   workspaceSlug: string;
 };
@@ -67,6 +72,25 @@ function buildFormData(entries: Array<[string, string]>): FormData {
   }
 
   return formData;
+}
+
+function buildNextAssignees(params: {
+  currentAssignees: WorkspaceMemberRecord[];
+  shouldAssign: boolean;
+  viewerId: string;
+  viewerMember: WorkspaceMemberRecord | null;
+}): WorkspaceMemberRecord[] {
+  if (params.shouldAssign) {
+    if (!params.viewerMember) {
+      return params.currentAssignees;
+    }
+    if (params.currentAssignees.some((entry) => entry.id === params.viewerId)) {
+      return params.currentAssignees;
+    }
+    return [...params.currentAssignees, params.viewerMember];
+  }
+
+  return params.currentAssignees.filter((entry) => entry.id !== params.viewerId);
 }
 
 function DisabledMenuItem({
@@ -99,6 +123,8 @@ export function CardHeaderOptionsMenu({
   onOptimisticCardPatch,
   onToggleWatch,
   richnessQueryKey,
+  viewerId,
+  viewerMember,
   watchedByViewer = card.watchedByViewer === true,
   workspaceSlug,
 }: CardHeaderOptionsMenuProps) {
@@ -155,7 +181,82 @@ export function CardHeaderOptionsMenu({
     },
   });
 
-  const isMutating = archiveMutation.isPending;
+  const templateMutation = useMutation({
+    mutationKey: [...modalMutationKey, "header-menu-template"],
+    mutationFn: async () => {
+      return toggleCardTemplateInline(
+        buildFormData([
+          ["boardId", boardId],
+          ["cardId", card.id],
+          ["workspaceSlug", workspaceSlug],
+        ]),
+      );
+    },
+    onMutate: () => {
+      const previousIsTemplate = card.is_template === true;
+      onOptimisticCardPatch?.({ is_template: !previousIsTemplate });
+      return { previousIsTemplate };
+    },
+    onError: (_error, _variables, context) => {
+      onOptimisticCardPatch?.({ is_template: context?.previousIsTemplate ?? (card.is_template === true) });
+    },
+    onSuccess: (result, _variables, context) => {
+      if (!result.ok || typeof result.isTemplate !== "boolean") {
+        onOptimisticCardPatch?.({ is_template: context?.previousIsTemplate ?? (card.is_template === true) });
+        toast.error(result.error ?? "Không thể cập nhật trạng thái mẫu.");
+        return;
+      }
+
+      onOptimisticCardPatch?.({ is_template: result.isTemplate });
+    },
+  });
+
+  const selfAssignmentMutation = useMutation({
+    mutationKey: [...modalMutationKey, "header-menu-self-assignee-toggle"],
+    mutationFn: async (shouldAssign: boolean) => {
+      const formData = buildFormData([
+        ["boardId", boardId],
+        ["cardId", card.id],
+        ["workspaceSlug", workspaceSlug],
+        ["userId", viewerId],
+      ]);
+      return shouldAssign ? assignCardMemberInline(formData) : unassignCardMemberInline(formData);
+    },
+    onMutate: (shouldAssign) => {
+      const previousAssignees = card.assignees;
+      const nextAssignees = buildNextAssignees({
+        currentAssignees: previousAssignees,
+        shouldAssign,
+        viewerId,
+        viewerMember,
+      });
+      onOptimisticCardPatch?.({ assignees: nextAssignees });
+      return { previousAssignees };
+    },
+    onError: (_error, _variables, context) => {
+      onOptimisticCardPatch?.({ assignees: context?.previousAssignees ?? card.assignees });
+    },
+    onSuccess: (result, _variables, context) => {
+      if (!result.ok) {
+        onOptimisticCardPatch?.({ assignees: context?.previousAssignees ?? card.assignees });
+        toast.error(result.error ?? "Không thể cập nhật thành viên.");
+        return;
+      }
+
+      invalidateCardRichnessQuery({
+        boardId,
+        cardId: card.id,
+        queryClient,
+        richnessQueryKey,
+        workspaceSlug,
+      });
+    },
+  });
+
+  const isViewerAssigned = card.assignees.some((entry) => entry.id === viewerId);
+  const canToggleSelfAssignment = isViewerAssigned || viewerMember !== null;
+  const isMutating = archiveMutation.isPending || templateMutation.isPending || selfAssignmentMutation.isPending;
+  const isTemplate = card.is_template === true;
   const isPopoverPanelOpen = activePanel !== null;
   const popoverWidthClassName =
     activePanel === "copy"
@@ -204,6 +305,7 @@ export function CardHeaderOptionsMenu({
         <PopoverAnchor asChild>
           <div className="inline-flex">
             <DropdownMenu
+              modal={false}
               onOpenChange={(nextOpen) => {
                 setMenuOpen(nextOpen);
                 if (nextOpen) {
@@ -237,10 +339,20 @@ export function CardHeaderOptionsMenu({
                 }}
                 sideOffset={6}
               >
-                <DisabledMenuItem
-                  icon={<UserPlus className="h-4 w-4" />}
-                  label="Tham gia"
-                />
+                <DropdownMenuItem
+                  className={itemClassName}
+                  disabled={!canWrite || isMutating || !canToggleSelfAssignment}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    if (!canToggleSelfAssignment) {
+                      return;
+                    }
+                    selfAssignmentMutation.mutate(!isViewerAssigned);
+                  }}
+                >
+                  {isViewerAssigned ? <UserMinus className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  {isViewerAssigned ? "Rời đi" : "Tham gia"}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className={itemClassName}
                   disabled={!canWrite || isMutating}
@@ -267,13 +379,25 @@ export function CardHeaderOptionsMenu({
                   icon={<SplitSquareHorizontal className="h-4 w-4" />}
                   label="Đối xứng"
                 />
-                <DisabledMenuItem
-                  icon={<LayoutTemplate className="h-4 w-4" />}
-                  label="Tạo mẫu"
-                />
+                <DropdownMenuItem
+                  className={`${itemClassName} ${isTemplate ? "bg-white/10 text-slate-100" : ""}`}
+                  disabled={!canWrite || isMutating}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    templateMutation.mutate();
+                  }}
+                >
+                  <LayoutTemplate className="mr-2 h-4 w-4" />
+                  {isTemplate ? "Mẫu" : "Tạo mẫu"}
+                  {isTemplate ? (
+                    <span className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-sm bg-lime-400 text-slate-900">
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className={`${itemClassName} ${watchedByViewer ? "bg-white/10 text-slate-100" : ""}`}
-                  disabled={!canWrite}
+                  disabled={!canWrite || isMutating}
                   onSelect={(event) => {
                     event.preventDefault();
                     if (!onToggleWatch) {

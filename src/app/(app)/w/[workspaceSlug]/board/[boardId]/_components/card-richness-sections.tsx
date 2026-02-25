@@ -2,7 +2,7 @@
 /* eslint-disable max-lines */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage, Input, Label } from "@/components/ui";
@@ -97,12 +97,13 @@ export function LabelsSection({
     cardId,
     workspaceSlug,
   });
-  const [localWorkspaceLabels, setLocalWorkspaceLabels] = useState<LabelRecord[]>(workspaceLabels);
+  const [localWorkspaceLabels, setLocalWorkspaceLabels] = useState<LabelRecord[] | null>(null);
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const [quickCreateName, setQuickCreateName] = useState("");
   const [quickCreateColor, setQuickCreateColor] = useState("#0C66E4");
   const [managerCreateName, setManagerCreateName] = useState("");
   const [managerCreateColor, setManagerCreateColor] = useState("#0C66E4");
+  const resolvedWorkspaceLabels = localWorkspaceLabels ?? workspaceLabels;
 
   const addLabelMutation = useMutation({
     mutationKey: [...modalMutationKey, "labels-add"],
@@ -120,7 +121,7 @@ export function LabelsSection({
         return;
       }
 
-      const labelToAdd = localWorkspaceLabels.find((label) => label.id === labelId);
+      const labelToAdd = resolvedWorkspaceLabels.find((label) => label.id === labelId);
       if (labelToAdd && !labels.some((label) => label.id === labelToAdd.id)) {
         onOptimisticCardPatch?.({ labels: [...labels, labelToAdd] });
       }
@@ -166,10 +167,11 @@ export function LabelsSection({
 
       setQuickCreateName("");
       setLocalWorkspaceLabels((previous) => {
-        if (previous.some((label) => label.id === result.label.id)) {
-          return previous;
+        const baseLabels = previous ?? workspaceLabels;
+        if (baseLabels.some((label) => label.id === result.label.id)) {
+          return baseLabels;
         }
-        return [...previous, result.label];
+        return [...baseLabels, result.label];
       });
       onOptimisticCardPatch?.({
         labels: labels.some((label) => label.id === result.label.id)
@@ -197,10 +199,11 @@ export function LabelsSection({
 
       setManagerCreateName("");
       setLocalWorkspaceLabels((previous) => {
-        if (previous.some((label) => label.id === result.label.id)) {
-          return previous;
+        const baseLabels = previous ?? workspaceLabels;
+        if (baseLabels.some((label) => label.id === result.label.id)) {
+          return baseLabels;
         }
-        return [...previous, result.label];
+        return [...baseLabels, result.label];
       });
       invalidateRichness();
     },
@@ -223,7 +226,7 @@ export function LabelsSection({
       }
 
       setLocalWorkspaceLabels((previous) =>
-        previous.map((label) => (label.id === result.label.id ? result.label : label)),
+        (previous ?? workspaceLabels).map((label) => (label.id === result.label.id ? result.label : label)),
       );
       if (labels.some((label) => label.id === result.label.id)) {
         onOptimisticCardPatch?.({
@@ -248,7 +251,7 @@ export function LabelsSection({
         return;
       }
 
-      setLocalWorkspaceLabels((previous) => previous.filter((label) => label.id !== labelId));
+      setLocalWorkspaceLabels((previous) => (previous ?? workspaceLabels).filter((label) => label.id !== labelId));
       onOptimisticCardPatch?.({
         labels: labels.filter((label) => label.id !== labelId),
       });
@@ -268,19 +271,11 @@ export function LabelsSection({
     () => new Set(labels.map((label) => label.id)),
     [labels],
   );
-  const availableLabels = localWorkspaceLabels.filter((label) => !assignedLabelIds.has(label.id));
+  const availableLabels = resolvedWorkspaceLabels.filter((label) => !assignedLabelIds.has(label.id));
+  const effectiveSelectedLabelId = availableLabels.some((label) => label.id === selectedLabelId)
+    ? selectedLabelId
+    : (availableLabels[0]?.id ?? "");
   const canQuickCreateLabel = canWrite && canManageLabels && availableLabels.length < 1;
-
-  useEffect(() => {
-    if (selectedLabelId.length > 0 && availableLabels.some((label) => label.id === selectedLabelId)) {
-      return;
-    }
-    setSelectedLabelId(availableLabels[0]?.id ?? "");
-  }, [availableLabels, selectedLabelId]);
-
-  useEffect(() => {
-    setLocalWorkspaceLabels(workspaceLabels);
-  }, [workspaceLabels]);
 
   return (
     <section className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-950/35 p-3">
@@ -305,7 +300,7 @@ export function LabelsSection({
                 setSelectedLabelId(event.target.value);
               }}
               required
-              value={selectedLabelId}
+              value={effectiveSelectedLabelId}
             >
               {availableLabels.map((label) => (
                 <option key={label.id} value={label.id}>
@@ -315,12 +310,12 @@ export function LabelsSection({
             </select>
             <button
               className="min-h-8 w-full rounded-md bg-[#0c66e4] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0055cc] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={selectedLabelId.length < 1 || isMutatingLabel}
+              disabled={effectiveSelectedLabelId.length < 1 || isMutatingLabel}
               onClick={() => {
-                if (!canWrite || selectedLabelId.length < 1) {
+                if (!canWrite || effectiveSelectedLabelId.length < 1) {
                   return;
                 }
-                addLabelMutation.mutate(selectedLabelId);
+                addLabelMutation.mutate(effectiveSelectedLabelId);
               }}
               type="button"
             >
@@ -438,7 +433,7 @@ export function LabelsSection({
           </div>
 
           <div className="mt-2 space-y-2 border-t border-slate-700 pt-2">
-            {localWorkspaceLabels.map((workspaceLabel) => (
+            {resolvedWorkspaceLabels.map((workspaceLabel) => (
               <WorkspaceLabelManagerRow
                 canManageLabels={canManageLabels}
                 isMutating={isMutatingLabel}

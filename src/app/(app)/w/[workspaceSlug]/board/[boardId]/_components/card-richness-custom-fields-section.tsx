@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui";
@@ -19,11 +19,17 @@ type CustomFieldDraft = {
 export type CardCustomFieldsOptimisticPatch = {
   assignees?: WorkspaceMemberRecord[];
   completed_at?: string | null;
+  coverAttachmentId?: string | null;
+  coverColor?: string | null;
+  coverColorblindFriendly?: boolean;
+  coverMode?: CardRecord["coverMode"];
+  coverSize?: CardRecord["coverSize"];
   due_at?: string | null;
   effort?: string | null;
   has_due_time?: boolean;
   has_start_time?: boolean;
   is_completed?: boolean;
+  is_template?: boolean;
   labels?: LabelRecord[];
   list_id?: string;
   priority?: string | null;
@@ -196,11 +202,8 @@ export function CardCustomFieldsSection({
   workspaceSlug,
 }: CardCustomFieldsSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const initialDraft = useMemo(() => buildDraftFromCard(card), [card]);
-  const draftStorageKey = useMemo(
-    () => `board:${workspaceSlug}:${boardId}:card:${card.id}:custom-fields-draft`,
-    [boardId, card.id, workspaceSlug],
-  );
+  const initialDraft = buildDraftFromCard(card);
+  const draftStorageKey = `board:${workspaceSlug}:${boardId}:card:${card.id}:custom-fields-draft`;
   const [fieldDraft, setFieldDraft] = useState<CustomFieldDraft>(() => readStoredDraft(draftStorageKey, initialDraft));
   const [persistedFieldDraft, setPersistedFieldDraft] = useState<CustomFieldDraft>(initialDraft);
   const hasUnsavedFieldChanges =

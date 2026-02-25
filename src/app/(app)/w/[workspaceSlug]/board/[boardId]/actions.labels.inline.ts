@@ -4,8 +4,9 @@ import { z } from "zod";
 
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import {
-  assertAdminRole,
+  assertCanManageWorkspaceLabels,
   boardPathSchema,
   cardLabelSchema,
   createLabelSchema,
@@ -154,10 +155,7 @@ export async function addCardLabelInline(
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return { ok: true };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to add label to card.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to add label to card."), ok: false };
   }
 }
 
@@ -203,10 +201,7 @@ export async function removeCardLabelInline(
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return { ok: true };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to remove label from card.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to remove label from card."), ok: false };
   }
 }
 
@@ -226,7 +221,7 @@ export async function createWorkspaceLabelAndAttachInline(
 
   try {
     const access = await resolveBoardAccess(parsed.data.workspaceSlug, parsed.data.boardId);
-    assertAdminRole(access.role, parsed.data.workspaceSlug, parsed.data.boardId);
+    assertCanManageWorkspaceLabels(access, parsed.data.workspaceSlug, parsed.data.boardId);
     const supabase = await createServerSupabaseClient();
     const { data: card, error: cardError } = await supabase
       .from("cards")
@@ -298,10 +293,7 @@ export async function createWorkspaceLabelAndAttachInline(
       },
     };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to create label.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to create label."), ok: false };
   }
 }
 
@@ -315,7 +307,7 @@ export async function createWorkspaceLabelInline(
 
   try {
     const access = await resolveBoardAccess(parsed.data.workspaceSlug, parsed.data.boardId);
-    assertAdminRole(access.role, parsed.data.workspaceSlug, parsed.data.boardId);
+    assertCanManageWorkspaceLabels(access, parsed.data.workspaceSlug, parsed.data.boardId);
     const supabase = await createServerSupabaseClient();
     const { data: label, error } = await supabase
       .from("labels")
@@ -352,10 +344,7 @@ export async function createWorkspaceLabelInline(
       },
     };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to create label.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to create label."), ok: false };
   }
 }
 
@@ -369,7 +358,7 @@ export async function updateWorkspaceLabelInline(
 
   try {
     const access = await resolveBoardAccess(parsed.data.workspaceSlug, parsed.data.boardId);
-    assertAdminRole(access.role, parsed.data.workspaceSlug, parsed.data.boardId);
+    assertCanManageWorkspaceLabels(access, parsed.data.workspaceSlug, parsed.data.boardId);
     const supabase = await createServerSupabaseClient();
     await ensureLabelBelongsWorkspace(
       supabase,
@@ -414,10 +403,7 @@ export async function updateWorkspaceLabelInline(
       },
     };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to update label.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update label."), ok: false };
   }
 }
 
@@ -431,7 +417,7 @@ export async function deleteWorkspaceLabelInline(
 
   try {
     const access = await resolveBoardAccess(parsed.data.workspaceSlug, parsed.data.boardId);
-    assertAdminRole(access.role, parsed.data.workspaceSlug, parsed.data.boardId);
+    assertCanManageWorkspaceLabels(access, parsed.data.workspaceSlug, parsed.data.boardId);
     const supabase = await createServerSupabaseClient();
     await ensureLabelBelongsWorkspace(
       supabase,
@@ -463,10 +449,7 @@ export async function deleteWorkspaceLabelInline(
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return { ok: true };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to delete label.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to delete label."), ok: false };
   }
 }
 
@@ -483,7 +466,7 @@ export async function ensureDefaultWorkspaceLabelsInline(
 
   try {
     const access = await resolveBoardAccess(parsed.data.workspaceSlug, parsed.data.boardId);
-    assertAdminRole(access.role, parsed.data.workspaceSlug, parsed.data.boardId);
+    assertCanManageWorkspaceLabels(access, parsed.data.workspaceSlug, parsed.data.boardId);
     const supabase = await createServerSupabaseClient();
     const { data: existingLabels, error: existingLabelsError } = await supabase
       .from("labels")
@@ -526,9 +509,6 @@ export async function ensureDefaultWorkspaceLabelsInline(
       })),
     };
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message, ok: false };
-    }
-    return { error: "Failed to initialize default labels.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to initialize default labels."), ok: false };
   }
 }

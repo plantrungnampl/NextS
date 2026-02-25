@@ -13,7 +13,7 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useMutation } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent } from "react";
 import { toast } from "sonner";
 
@@ -32,9 +32,11 @@ type BoardDndLayoutProps = {
   boardId: string;
   boardName: string;
   boardVersion: number;
+  filterNotice: string | null;
   handleDragEnd: (event: DragEndEvent) => void;
   handleDragStart: (event: DragStartEvent) => void;
   isBoardInteractionLocked: boolean;
+  isPointerInteractionLocked: boolean;
   listIds: string[];
   lists: ListWithCards[];
   loadMoreStep: number;
@@ -358,7 +360,7 @@ function BoardListsLane({
         ))}
         {!readOnly ? <AddListLane boardId={boardId} onCreateList={onCreateList} workspaceSlug={workspaceSlug} /> : null}
         {lists.length === 0 ? (
-          <motion.div
+          <m.div
             animate={{ opacity: 1, scale: 1 }}
             className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-white/30 bg-gray-900/50 p-8 text-center backdrop-blur-md"
             initial={{ opacity: 0, scale: 0.98 }}
@@ -373,7 +375,7 @@ function BoardListsLane({
             <p className="mt-1 text-xs text-slate-300">
               {readOnly ? "Waiting for teammates to add lists and cards." : "Press N to create a list, then C to add your first card."}
             </p>
-          </motion.div>
+          </m.div>
         ) : null}
       </div>
     </div>
@@ -384,9 +386,11 @@ export function BoardDndLayout({
   activeCardId,
   boardId,
   boardName,
+  filterNotice,
   handleDragEnd,
   handleDragStart,
   isBoardInteractionLocked,
+  isPointerInteractionLocked,
   listIds,
   lists,
   loadMoreStep,
@@ -411,67 +415,75 @@ export function BoardDndLayout({
   const listOptions = useMemo(() => lists.map((list) => ({ id: list.id, title: list.title })), [lists]);
 
   return (
-    <motion.section
-      animate={{ opacity: 1 }}
-      aria-label="Kanban board"
-      className={cn(
-        "board-no-text-selection space-y-3 rounded-2xl p-2.5 text-white",
-        isBoardInteractionLocked ? "pointer-events-none" : "",
-      )}
-      initial={{ opacity: 0 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-    >
-      {readOnly ? (
-        <p className="rounded-xl border border-amber-300/35 bg-amber-900/15 px-3 py-2 text-xs text-amber-100">
-          You can view cards in this board, but list/card edits are disabled.
-        </p>
-      ) : null}
-
-      <DndContext
-        id={`board-dnd-${boardId}`}
-        onDragEnd={handleDragEnd}
-        onDragStart={handleDragStart}
-        sensors={sensors}
+    <LazyMotion features={domAnimation}>
+      <m.section
+        animate={{ opacity: 1 }}
+        aria-label="Kanban board"
+        className={cn(
+          "board-no-text-selection space-y-3 rounded-2xl p-2.5 text-white",
+          isPointerInteractionLocked ? "pointer-events-none" : "",
+        )}
+        initial={{ opacity: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <SortableContext
-          id={`board-lists-${boardId}`}
-          items={listIds}
-          strategy={horizontalListSortingStrategy}
-        >
-          <BoardListsLane
-            activeCardId={activeCardId}
-            boardId={boardId}
-            boardName={boardName}
-            isBoardInteractionLocked={isBoardInteractionLocked}
-            listOptions={listOptions}
-            lists={lists}
-            loadMoreStep={loadMoreStep}
-            membershipRole={membershipRole}
-            onCardModalStateChange={onCardModalStateChange}
-            onCreateList={onCreateList}
-            onOptimisticBoardChange={onOptimisticBoardChange}
-            onLoadMoreCards={onLoadMoreCards}
-            presenceUsers={presenceUsers}
-            readOnly={readOnly}
-            showCardCoverOnFront={showCardCoverOnFront}
-            showCompleteStatusOnFront={showCompleteStatusOnFront}
-            viewerId={viewerId}
-            visibleCardCountByList={visibleCardCountByList}
-            workspaceLabels={workspaceLabels}
-            workspaceMembers={workspaceMembers}
-            workspaceSlug={workspaceSlug}
-          />
-        </SortableContext>
+        {filterNotice ? (
+          <p className="rounded-xl border border-sky-300/35 bg-sky-900/20 px-3 py-2 text-xs text-sky-100">
+            {filterNotice}
+          </p>
+        ) : null}
 
-        <DragOverlay>
-          {overlayLabel ? (
-            <div className="z-50 max-w-[280px] rotate-2 scale-105 rounded-xl border border-cyan-300/45 bg-slate-900/90 px-3 py-2 text-sm font-semibold text-slate-100 backdrop-blur-md">
-              {overlayLabel}
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-      <NoticeToaster message={notice} />
-    </motion.section>
+        {readOnly ? (
+          <p className="rounded-xl border border-amber-300/35 bg-amber-900/15 px-3 py-2 text-xs text-amber-100">
+            You can view cards in this board, but list/card edits are disabled.
+          </p>
+        ) : null}
+
+        <DndContext
+          id={`board-dnd-${boardId}`}
+          onDragEnd={handleDragEnd}
+          onDragStart={handleDragStart}
+          sensors={sensors}
+        >
+          <SortableContext
+            id={`board-lists-${boardId}`}
+            items={listIds}
+            strategy={horizontalListSortingStrategy}
+          >
+            <BoardListsLane
+              activeCardId={activeCardId}
+              boardId={boardId}
+              boardName={boardName}
+              isBoardInteractionLocked={isBoardInteractionLocked}
+              listOptions={listOptions}
+              lists={lists}
+              loadMoreStep={loadMoreStep}
+              membershipRole={membershipRole}
+              onCardModalStateChange={onCardModalStateChange}
+              onCreateList={onCreateList}
+              onOptimisticBoardChange={onOptimisticBoardChange}
+              onLoadMoreCards={onLoadMoreCards}
+              presenceUsers={presenceUsers}
+              readOnly={readOnly}
+              showCardCoverOnFront={showCardCoverOnFront}
+              showCompleteStatusOnFront={showCompleteStatusOnFront}
+              viewerId={viewerId}
+              visibleCardCountByList={visibleCardCountByList}
+              workspaceLabels={workspaceLabels}
+              workspaceMembers={workspaceMembers}
+              workspaceSlug={workspaceSlug}
+            />
+          </SortableContext>
+
+          <DragOverlay>
+            {overlayLabel ? (
+              <div className="z-50 max-w-[280px] rotate-2 scale-105 rounded-xl border border-cyan-300/45 bg-slate-900/90 px-3 py-2 text-sm font-semibold text-slate-100 backdrop-blur-md">
+                {overlayLabel}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+        <NoticeToaster message={notice} />
+      </m.section>
+    </LazyMotion>
   );
 }

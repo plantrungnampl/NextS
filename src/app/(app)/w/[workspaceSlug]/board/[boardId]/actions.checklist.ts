@@ -4,6 +4,7 @@
 import { sanitizeUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import {
   createChecklistItemSchema,
@@ -348,7 +349,7 @@ export async function createChecklistInline(formData: FormData): Promise<Checkli
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(parsed.data.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to create checklist.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to create checklist."), ok: false };
   }
 }
 
@@ -401,7 +402,7 @@ export async function updateChecklistInline(formData: FormData): Promise<Checkli
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklist.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to update checklist.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update checklist."), ok: false };
   }
 }
 
@@ -448,7 +449,7 @@ export async function deleteChecklistInline(formData: FormData): Promise<Checkli
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklist.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to delete checklist.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to delete checklist."), ok: false };
   }
 }
 
@@ -483,7 +484,7 @@ export async function reorderChecklistsInline(formData: FormData): Promise<Check
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(parsed.data.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to reorder checklists.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to reorder checklists."), ok: false };
   }
 }
 
@@ -541,7 +542,7 @@ export async function createChecklistItemInline(formData: FormData): Promise<Che
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklist.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to create checklist item.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to create checklist item."), ok: false };
   }
 }
 
@@ -592,7 +593,7 @@ export async function updateChecklistItemInline(formData: FormData): Promise<Che
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklistItem.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to update checklist item.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update checklist item."), ok: false };
   }
 }
 
@@ -640,7 +641,7 @@ export async function toggleChecklistItemInline(formData: FormData): Promise<Che
     revalidateBoardPath(workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklistItem.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to toggle checklist item.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to toggle checklist item."), ok: false };
   }
 }
 
@@ -686,7 +687,7 @@ export async function deleteChecklistItemInline(formData: FormData): Promise<Che
     revalidateBoardPath(workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklistItem.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to delete checklist item.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to delete checklist item."), ok: false };
   }
 }
 
@@ -726,6 +727,6 @@ export async function reorderChecklistItemsInline(formData: FormData): Promise<C
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return buildChecklistPayload(await fetchChecklistsByCardId(checklist.cardId));
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to reorder checklist items.", ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to reorder checklist items."), ok: false };
   }
 }

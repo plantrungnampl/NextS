@@ -150,10 +150,7 @@ export function CardRichnessDescriptionSection({
 }: DescriptionSectionProps) {
   const queryClient = useQueryClient();
   const initialDescription = card.description ?? "";
-  const draftStorageKey = useMemo(
-    () => `board:${workspaceSlug}:${boardId}:card:${card.id}:description-draft`,
-    [boardId, card.id, workspaceSlug],
-  );
+  const draftStorageKey = `board:${workspaceSlug}:${boardId}:card:${card.id}:description-draft`;
   const restoredDescriptionDraft = useMemo(
     () => readDraftFromStorage(draftStorageKey),
     [draftStorageKey],

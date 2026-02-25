@@ -1,8 +1,8 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useReducer } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Check,
   LayoutGrid,
@@ -34,6 +34,60 @@ type CreateBoardModalProps = {
   isOpen: boolean;
   workspaceOptions: WorkspaceOption[];
 };
+
+type CreateBoardDraftState = {
+  boardDescription: string;
+  boardName: string;
+  selectedBackgroundId: string;
+  selectedVisibility: VisibilityValue;
+  workspaceSlug: string;
+};
+
+type CreateBoardDraftAction =
+  | { type: "reset"; workspaceSlug: string }
+  | { type: "setBackground"; value: string }
+  | { type: "setBoardDescription"; value: string }
+  | { type: "setBoardName"; value: string }
+  | { type: "setVisibility"; value: VisibilityValue }
+  | { type: "setWorkspaceSlug"; value: string };
+
+function buildCreateBoardDraftState(workspaceSlug: string): CreateBoardDraftState {
+  return {
+    boardDescription: "",
+    boardName: "",
+    selectedBackgroundId: BOARD_BACKGROUNDS[0].id,
+    selectedVisibility: "workspace",
+    workspaceSlug,
+  };
+}
+
+function createBoardDraftReducer(
+  state: CreateBoardDraftState,
+  action: CreateBoardDraftAction,
+): CreateBoardDraftState {
+  if (action.type === "reset") {
+    return buildCreateBoardDraftState(action.workspaceSlug);
+  }
+
+  if (action.type === "setBackground") {
+    return { ...state, selectedBackgroundId: action.value };
+  }
+
+  if (action.type === "setBoardDescription") {
+    return { ...state, boardDescription: action.value };
+  }
+
+  if (action.type === "setBoardName") {
+    return { ...state, boardName: action.value };
+  }
+
+  if (action.type === "setVisibility") {
+    return { ...state, selectedVisibility: action.value };
+  }
+
+  return { ...state, workspaceSlug: action.value };
+}
+
 function BoardPreview({
   boardName,
   style,
@@ -258,7 +312,8 @@ function CreateBoardForm({
     </form>
   );
 }
-export function CreateBoardModal({
+// eslint-disable-next-line max-lines-per-function
+function CreateBoardModalWithSearchParams({
   createBoardMessage,
   createBoardType,
   defaultWorkspaceSlug,
@@ -267,38 +322,48 @@ export function CreateBoardModal({
 }: CreateBoardModalProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const resolvedWorkspaceSlug = useMemo(
     () => getResolvedWorkspaceSlug(workspaceOptions, defaultWorkspaceSlug),
     [defaultWorkspaceSlug, workspaceOptions],
   );
-  const [workspaceSlug, setWorkspaceSlug] = useState(resolvedWorkspaceSlug);
-  const [selectedBackgroundId, setSelectedBackgroundId] = useState(BOARD_BACKGROUNDS[0].id);
-  const [selectedVisibility, setSelectedVisibility] = useState<VisibilityValue>("workspace");
-  const [boardName, setBoardName] = useState("");
-  const [boardDescription, setBoardDescription] = useState("");
+  const [draftState, dispatchDraft] = useReducer(
+    createBoardDraftReducer,
+    resolvedWorkspaceSlug,
+    buildCreateBoardDraftState,
+  );
+  const {
+    boardDescription,
+    boardName,
+    selectedBackgroundId,
+    selectedVisibility,
+    workspaceSlug,
+  } = draftState;
+
   const closeModal = useCallback(() => {
-    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(window.location.search);
     for (const key of MODAL_QUERY_KEYS) {
       nextSearchParams.delete(key);
     }
 
     const queryString = nextSearchParams.toString();
     router.replace(queryString ? `${pathname}?${queryString}` : pathname);
-  }, [pathname, router, searchParams]);
-  useEffect(() => {
-    setWorkspaceSlug(resolvedWorkspaceSlug);
-  }, [resolvedWorkspaceSlug]);
+  }, [pathname, router]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    setSelectedVisibility("workspace");
-    setBoardName("");
-    setBoardDescription("");
-    setSelectedBackgroundId(BOARD_BACKGROUNDS[0].id);
-  }, [isOpen]);
+    dispatchDraft({
+      type: "reset",
+      workspaceSlug: resolvedWorkspaceSlug,
+    });
+  }, [isOpen, resolvedWorkspaceSlug]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -323,15 +388,16 @@ export function CreateBoardModal({
   const canCreateBoard = workspaceOptions.length > 0 && workspaceSlug.length > 0;
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 px-4 py-8 backdrop-blur-sm sm:py-14"
-      onClick={closeModal}
-    >
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 px-4 py-8 backdrop-blur-sm sm:py-14">
+      <button
+        aria-label="Đóng modal tạo bảng"
+        className="absolute inset-0 z-0 h-full w-full cursor-default bg-transparent"
+        onClick={closeModal}
+        tabIndex={-1}
+        type="button"
+      />
       <div
-        className="mx-auto w-full max-w-[520px] rounded-2xl border border-slate-600/70 bg-[#1b2230] p-4 text-slate-100 shadow-2xl sm:p-5"
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
+        className="relative z-10 mx-auto w-full max-w-[520px] rounded-2xl border border-slate-600/70 bg-[#1b2230] p-4 text-slate-100 shadow-2xl sm:p-5"
       >
         <ModalTabs />
 
@@ -365,15 +431,33 @@ export function CreateBoardModal({
           selectedBackgroundId={selectedBackgroundId}
           selectedBackgroundStyle={selectedBackground.style}
           selectedVisibility={selectedVisibility}
-          setBoardDescription={setBoardDescription}
-          setBoardName={setBoardName}
-          setSelectedBackgroundId={setSelectedBackgroundId}
-          setSelectedVisibility={setSelectedVisibility}
-          setWorkspaceSlug={setWorkspaceSlug}
+          setBoardDescription={(value) => {
+            dispatchDraft({ type: "setBoardDescription", value });
+          }}
+          setBoardName={(value) => {
+            dispatchDraft({ type: "setBoardName", value });
+          }}
+          setSelectedBackgroundId={(value) => {
+            dispatchDraft({ type: "setBackground", value });
+          }}
+          setSelectedVisibility={(value) => {
+            dispatchDraft({ type: "setVisibility", value });
+          }}
+          setWorkspaceSlug={(value) => {
+            dispatchDraft({ type: "setWorkspaceSlug", value });
+          }}
           workspaceOptions={workspaceOptions}
           workspaceSlug={workspaceSlug}
         />
       </div>
     </div>
+  );
+}
+
+export function CreateBoardModal(props: CreateBoardModalProps) {
+  return (
+    <Suspense fallback={null}>
+      <CreateBoardModalWithSearchParams {...props} />
+    </Suspense>
   );
 }

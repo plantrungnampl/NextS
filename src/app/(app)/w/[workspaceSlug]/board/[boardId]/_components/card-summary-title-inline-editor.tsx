@@ -10,7 +10,6 @@ import { CompletionCircleHint } from "./completion-circle-hint";
 
 function CardTitleEditForm({
   draftTitle,
-  formRef,
   inputRef,
   onCancel,
   onDraftChange,
@@ -18,7 +17,6 @@ function CardTitleEditForm({
   onSubmit,
 }: {
   draftTitle: string;
-  formRef: RefObject<HTMLFormElement | null>;
   inputRef: RefObject<HTMLInputElement | null>;
   isSaving: boolean;
   onCancel: () => void;
@@ -26,14 +24,7 @@ function CardTitleEditForm({
   onSubmit: () => void;
 }) {
   return (
-    <form
-      className="min-w-0 flex-1"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-      ref={formRef}
-    >
+    <div className="min-w-0 flex-1">
       <input
         className="min-h-8 w-full rounded-md border border-cyan-300/60 bg-slate-950/80 px-2 text-sm font-semibold leading-snug text-slate-100 outline-none ring-1 ring-cyan-300/60 placeholder:text-slate-500"
         disabled={isSaving}
@@ -59,7 +50,7 @@ function CardTitleEditForm({
         type="text"
         value={draftTitle}
       />
-    </form>
+    </div>
   );
 }
 
@@ -125,16 +116,15 @@ export function CardTitleInlineEditor({
   title: string;
   workspaceSlug: string;
 }) {
-  const [draftTitle, setDraftTitle] = useState(title);
+  const [draftTitle, setDraftTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const formRef = useRef<HTMLFormElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const renameCardMutation = useRenameCardTitleMutation({
     boardId,
     cardId,
     onRollbackTitle: () => {
       onOptimisticTitleChange?.(title);
-      setDraftTitle(title);
+      setDraftTitle("");
     },
     onSuccessTitle: (nextTitle) => {
       onOptimisticTitleChange?.(nextTitle);
@@ -151,7 +141,7 @@ export function CardTitleInlineEditor({
   }, [isEditingTitle]);
 
   const cancelEditing = () => {
-    setDraftTitle(title);
+    setDraftTitle("");
     setIsEditingTitle(false);
   };
   const submitTitleIfChanged = () => {
@@ -203,7 +193,6 @@ export function CardTitleInlineEditor({
       {isEditingTitle ? (
         <CardTitleEditForm
           draftTitle={draftTitle}
-          formRef={formRef}
           inputRef={inputRef}
           isSaving={renameCardMutation.isPending}
           onCancel={cancelEditing}

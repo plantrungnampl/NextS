@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { sanitizeUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import {
   createCommentSchema,
@@ -72,14 +73,6 @@ type CommentInlineMutationResult =
   | { ok: true }
   | { error: string; ok: false };
 
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
-
 async function ensureCommentAccessInline(args: {
   boardId: string;
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -97,7 +90,7 @@ async function ensureCommentAccessInline(args: {
     return { ok: true };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, COMMENT_PERMISSION_ERROR),
+      error: resolveInlineActionErrorMessage(error, COMMENT_PERMISSION_ERROR),
       ok: false,
     };
   }
@@ -292,7 +285,7 @@ export async function createCardCommentInline(
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return { ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to create comment."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to create comment."), ok: false };
   }
 }
 
@@ -346,7 +339,7 @@ export async function updateCardCommentInline(
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return { ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to update comment."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update comment."), ok: false };
   }
 }
 
@@ -394,6 +387,6 @@ export async function deleteCardCommentInline(
     revalidateBoardPath(parsed.data.workspaceSlug, parsed.data.boardId);
     return { ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to delete comment."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to delete comment."), ok: false };
   }
 }

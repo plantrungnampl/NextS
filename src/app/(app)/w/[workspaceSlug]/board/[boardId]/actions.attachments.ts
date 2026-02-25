@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import {
   boardRoute,
   logBoardActivity,
@@ -242,14 +243,6 @@ async function deleteAttachmentRecord(params: {
   });
 }
 
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
-
 export async function uploadAttachment(formData: FormData) {
   const input = parseSchemaOrRedirect(uploadAttachmentPathSchema, {
     boardId: formData.get("boardId"),
@@ -270,7 +263,7 @@ export async function uploadAttachment(formData: FormData) {
       file,
     });
   } catch (error) {
-    const message = resolveInlineErrorMessage(error, "Failed to upload attachment file.");
+    const message = resolveInlineActionErrorMessage(error, "Failed to upload attachment file.");
     redirectBoardError(input.workspaceSlug, input.boardId, message);
   }
 
@@ -331,7 +324,7 @@ export async function uploadAttachmentsInline(
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to upload attachments."),
+      error: resolveInlineActionErrorMessage(error, "Failed to upload attachments."),
       ok: false,
     };
   }
@@ -368,7 +361,7 @@ export async function deleteAttachment(formData: FormData) {
       workspaceSlug: input.workspaceSlug,
     });
   } catch (error) {
-    const message = resolveInlineErrorMessage(error, "Failed to delete attachment.");
+    const message = resolveInlineActionErrorMessage(error, "Failed to delete attachment.");
     redirectBoardError(input.workspaceSlug, input.boardId, message);
   }
 
@@ -417,7 +410,7 @@ export async function deleteAttachmentInline(
     return { ok: true };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to delete attachment."),
+      error: resolveInlineActionErrorMessage(error, "Failed to delete attachment."),
       ok: false,
     };
   }

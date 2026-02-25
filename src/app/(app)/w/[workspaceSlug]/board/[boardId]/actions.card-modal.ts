@@ -9,6 +9,7 @@ import { APP_ROUTES, sanitizeNullableUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { ATTACHMENT_BUCKET, boardPathSchema } from "./actions.card-richness.shared";
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, fetchCardsForBoard, logBoardActivity, resolveBoardAccess, withBoardError } from "./actions.shared";
 import {
   updateCardDueDate as updateCardDueDateAction,
@@ -481,14 +482,6 @@ function parseDeleteCardFormData(formData: FormData) {
   });
 }
 
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
-
 type SupabaseQueryErrorLike = {
   code?: string;
   message: string;
@@ -944,7 +937,7 @@ export async function getMoveDestinationOptionsInline(
   try {
     return persistMoveDestinationOptions(parsed.data);
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to load move destinations."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to load move destinations."), ok: false };
   }
 }
 
@@ -964,7 +957,7 @@ export async function moveCardInline(
 
     return { movedCard: persistResult.movedCard, ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to move card."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to move card."), ok: false };
   }
 }
 
@@ -984,7 +977,7 @@ export async function upsertPrivateInboxItemInline(
 
     return { item: persistResult.item, ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to update private inbox."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update private inbox."), ok: false };
   }
 }
 
@@ -1018,6 +1011,6 @@ export async function deleteCardInline(
 
     return { deletedCardId: persistResult.deletedCardId, ok: true };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to delete card."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to delete card."), ok: false };
   }
 }

@@ -1,58 +1,82 @@
-export type UiStyle = "enterprise" | "playful";
+import type { LucideIcon } from "lucide-react";
 
-export type UiTheme = {
-  name: string;
-  pageClass: string;
-  overlayClass: string;
-  focusRingClass: string;
-  styleSwitchClass: string;
-  navActiveClass: string;
-  navIdleClass: string;
-  brandBadgeClass: string;
-  badgeClass: string;
-  heroTitleClass: string;
-  heroPanelClass: string;
-  panelSurfaceClass: string;
-  metricValueClass: string;
-  featureIconClass: string;
-  pricingShellClass: string;
-  pricingEyebrowClass: string;
-  primaryButtonClass: string;
-  secondaryButtonClass: string;
-  boardToneClasses: [string, string, string];
-};
+export type HomeLocale = "en" | "vi";
+
+export type HomeSectionId =
+  | "features"
+  | "solutions"
+  | "templates"
+  | "pricing"
+  | "resources"
+  | "use-cases"
+  | "testimonials";
+
+export type HomeButtonVariant = "primary" | "secondary" | "ghost";
 
 export type NavLink = {
+  id: HomeSectionId;
   label: string;
   href: string;
 };
 
-type BoardCard = {
-  title: string;
-  tag: string;
-  owner: string;
-};
-
-export type BoardColumn = {
-  title: string;
-  cards: BoardCard[];
-};
-
-export type Metric = {
-  value: string;
+export type HeroCta = {
   label: string;
+  href: string;
+  variant: HomeButtonVariant;
+  ariaLabel?: string;
 };
 
-export type Feature = {
+export type BrandLogoItem = {
+  name: string;
+};
+
+export type BoardCardPreview = {
+  title: string;
+  label: string;
+  labelClassName: string;
+  members: string[];
+  dueDate: string;
+  checklist: string;
+};
+
+export type BoardColumnPreview = {
+  title: string;
+  cardCount: number;
+  cards: BoardCardPreview[];
+};
+
+export type FeatureCard = {
   title: string;
   description: string;
-  icon: string;
+  icon: LucideIcon;
+  href: string;
 };
 
-export type HomePageSearchParams = {
-  style?: string | string[];
+export type UseCaseItem = {
+  title: string;
+  description: string;
+  metric: string;
+  icon: LucideIcon;
+};
+
+export type TestimonialItem = {
+  quote: string;
+  name: string;
+  role: string;
+  company: string;
+  avatar: string;
+};
+
+export type FooterLinkItem = {
+  label: string;
+  href: string;
+};
+
+export type FooterGroup = {
+  title: string;
+  links: FooterLinkItem[];
 };
 
 export type HomePageProps = {
-  searchParams?: Promise<HomePageSearchParams> | HomePageSearchParams;
+  locale?: HomeLocale;
 };

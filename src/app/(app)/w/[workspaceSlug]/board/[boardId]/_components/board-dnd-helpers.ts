@@ -353,6 +353,7 @@ function buildOptimisticCopiedCard(params: {
     comments: [],
     effort: params.includeCustomFields ? sourceCard.effort : null,
     id: params.copiedCardId,
+    is_template: false,
     labels: [...sourceCard.labels],
     list_id: params.targetListId,
     position: 0,

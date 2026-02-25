@@ -1,5 +1,6 @@
 import "server-only";
 
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import type {
@@ -128,14 +129,8 @@ async function resolveBoardContext(params: {
   boardId: string;
   workspaceSlug: string;
 }): Promise<{ workspaceId: string }> {
+  const { userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Unauthorized.");
-  }
 
   const { data: board, error: boardError } = await supabase
     .from("boards")
@@ -157,7 +152,7 @@ async function resolveBoardContext(params: {
     .from("workspace_members")
     .select("role")
     .eq("workspace_id", typedBoard.workspace_id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (membershipError) {

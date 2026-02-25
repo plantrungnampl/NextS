@@ -2,10 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { APP_ROUTES } from "@/core";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { NotificationDropdown } from "./_components/notification-dropdown";
 import { ProfileDropdown } from "./_components/profile-dropdown";
+
+export const dynamic = "force-dynamic";
 
 type NotificationRow = {
   card_id: string | null;
@@ -20,10 +23,22 @@ type NotificationCardRow = {
   title: string;
 };
 
+type NotificationViewItem = {
+  dueLabel: string;
+  id: string;
+  remindedAtLabel: string;
+  statusLabel: string;
+  title: string;
+};
+
 type SupabaseQueryErrorLike = {
   code?: string;
   message: string;
 };
+
+const NOTIFICATION_LOCALE = "vi-VN";
+const NOTIFICATION_TIME_ZONE = "Asia/Ho_Chi_Minh";
+const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function isMissingTableSchemaCacheError(
   error: SupabaseQueryErrorLike | null,
@@ -44,30 +59,119 @@ function isMissingTableSchemaCacheError(
   );
 }
 
+function resolveNotificationTitle(cardTitle: string | null, cardId: string | null): string {
+  if (cardTitle && cardTitle.trim().length > 0) {
+    return cardTitle.trim();
+  }
+
+  if (cardId) {
+    return `Thẻ #${cardId.slice(0, 8)}`;
+  }
+
+  return "Thẻ không xác định";
+}
+
+function createDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: NOTIFICATION_TIME_ZONE,
+    year: "numeric",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "00";
+  const day = parts.find((part) => part.type === "day")?.value ?? "00";
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatNotificationDate(
+  value: string | null,
+  options: { includeYear: boolean; fallback: string },
+): string {
+  if (!value) {
+    return options.fallback;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return options.fallback;
+  }
+
+  const formatter = new Intl.DateTimeFormat(NOTIFICATION_LOCALE, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    ...(options.includeYear ? { year: "numeric" } : {}),
+    timeZone: NOTIFICATION_TIME_ZONE,
+  });
+
+  return formatter.format(parsed);
+}
+
+function resolveDueStatusLabelAt(
+  dueAt: string | null,
+  isCompleted: boolean,
+  nowSnapshotIso: string,
+): string {
+  if (isCompleted) {
+    return "Đã hoàn thành";
+  }
+
+  if (!dueAt) {
+    return "Không có hạn cụ thể";
+  }
+
+  const parsedDueDate = new Date(dueAt);
+  if (Number.isNaN(parsedDueDate.getTime())) {
+    return "Không xác định hạn";
+  }
+
+  const now = new Date(nowSnapshotIso);
+  if (Number.isNaN(now.getTime())) {
+    return "Không xác định hạn";
+  }
+
+  if (parsedDueDate.getTime() < now.getTime()) {
+    return "Đã quá hạn";
+  }
+
+  if (createDateKey(parsedDueDate) === createDateKey(now)) {
+    return "Đến hạn hôm nay";
+  }
+
+  if (parsedDueDate.getTime() - now.getTime() <= UPCOMING_WINDOW_MS) {
+    return "Sắp đến hạn";
+  }
+
+  return "Còn thời gian";
+}
+
 export default async function PrivateAppLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     redirect(APP_ROUTES.login);
   }
+
+  const userId = authContext.userId;
+  const userEmail = authContext.email ?? "";
+  const supabase = await createServerSupabaseClient();
 
   const [{ count: unreadCountValue, error: unreadCountError }, { data: recentNotificationRows, error: recentNotificationsError }] = await Promise.all([
     supabase
       .from("card_notification_events")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .is("read_at", null),
     supabase
       .from("card_notification_events")
       .select("id, card_id, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(8),
   ]);
@@ -104,15 +208,26 @@ export default async function PrivateAppLayout({
     }
   }
 
-  const recentNotifications = notificationRows.map((entry) => {
+  const nowSnapshotIso = new Date().toISOString();
+
+  const recentNotifications: NotificationViewItem[] = notificationRows.map((entry) => {
     const relatedCard = entry.card_id ? cardById.get(entry.card_id) : undefined;
     return {
-      cardId: entry.card_id,
-      cardTitle: relatedCard?.title ?? null,
-      createdAt: entry.created_at,
-      dueAt: relatedCard?.due_at ?? null,
+      dueLabel: formatNotificationDate(relatedCard?.due_at ?? null, {
+        fallback: "Chưa có hạn",
+        includeYear: true,
+      }),
       id: entry.id,
-      isCompleted: relatedCard?.is_completed ?? false,
+      remindedAtLabel: formatNotificationDate(entry.created_at, {
+        fallback: "Vừa xong",
+        includeYear: false,
+      }),
+      statusLabel: resolveDueStatusLabelAt(
+        relatedCard?.due_at ?? null,
+        relatedCard?.is_completed ?? false,
+        nowSnapshotIso,
+      ),
+      title: resolveNotificationTitle(relatedCard?.title ?? null, entry.card_id),
     };
   });
 
@@ -150,9 +265,9 @@ export default async function PrivateAppLayout({
               ?
             </button>
             <p className="hidden rounded-md bg-[#131722] px-2 py-1 text-xs text-slate-300 lg:block">
-              {user.email}
+              {userEmail}
             </p>
-            <ProfileDropdown email={user.email} />
+            <ProfileDropdown email={userEmail} />
           </div>
         </div>
       </header>

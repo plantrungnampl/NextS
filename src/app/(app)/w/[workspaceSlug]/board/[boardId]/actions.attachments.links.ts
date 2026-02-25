@@ -6,6 +6,7 @@ import { isIP } from "node:net";
 
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import {
   logBoardActivity,
   resolveBoardAccess,
@@ -66,14 +67,6 @@ const BLOCKED_HOSTNAMES = new Set([
   "localhost",
   "::1",
 ]);
-
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-}
 
 function sanitizeInvisibleCharacters(value: string): string {
   return value.replace(/[\u200B-\u200D\uFEFF]/g, "");
@@ -467,7 +460,7 @@ export async function addAttachmentUrlInline(
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to attach link."),
+      error: resolveInlineActionErrorMessage(error, "Failed to attach link."),
       ok: false,
     };
   }
@@ -576,7 +569,7 @@ export async function getRecentAttachmentLinksInline(
     return { links, ok: true };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to load recent links."),
+      error: resolveInlineActionErrorMessage(error, "Failed to load recent links."),
       ok: false,
     };
   }
@@ -674,7 +667,7 @@ export async function refreshLegacyAttachmentTitlesInline(
     };
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to refresh legacy attachment titles."),
+      error: resolveInlineActionErrorMessage(error, "Failed to refresh legacy attachment titles."),
       ok: false,
     };
   }

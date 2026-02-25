@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import { APP_ROUTES } from "@/core";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import type {
@@ -142,14 +143,13 @@ export async function resolveBoardAccess(
   options: ResolveBoardAccessOptions = {},
 ): Promise<BoardAccess> {
   const requiredPermission = options.requiredPermission ?? "write";
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     redirect(APP_ROUTES.login);
   }
+
+  const userId = authContext.userId;
+  const supabase = await createServerSupabaseClient();
 
   const { data: boardWithSettings, error: boardWithSettingsError } = await supabase
     .from("boards")
@@ -193,7 +193,7 @@ export async function resolveBoardAccess(
     .from("workspace_members")
     .select("role")
     .eq("workspace_id", typedBoard.workspace_id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   const typedMembership = (membership as MembershipRecord | null) ?? null;
 
@@ -201,7 +201,7 @@ export async function resolveBoardAccess(
     .from("board_members")
     .select("role")
     .eq("board_id", typedBoard.id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   const typedBoardMembership = (boardMembership as BoardMembershipRecord | null) ?? null;
 
@@ -222,7 +222,7 @@ export async function resolveBoardAccess(
     board: typedBoard,
     boardMembershipRole: typedBoardMembership?.role ?? null,
     membershipRole: typedMembership?.role ?? null,
-    userId: user.id,
+    userId,
   });
   if (!hasReadAccess) {
     redirect(withWorkspaceError(workspaceSlug, "Board not found or inaccessible."));
@@ -232,7 +232,7 @@ export async function resolveBoardAccess(
     board: typedBoard,
     boardMembershipRole: typedBoardMembership?.role ?? null,
     membershipRole: typedMembership?.role ?? null,
-    userId: user.id,
+    userId,
   });
 
   if (requiredPermission === "write" && !canWrite) {
@@ -245,14 +245,14 @@ export async function resolveBoardAccess(
     boardEditPermission: typedBoard.edit_permission,
     boardVisibility: typedBoard.visibility,
     canManageSettings:
-      typedBoard.created_by === user.id ||
+      typedBoard.created_by === userId ||
       typedMembership?.role === "owner" ||
       typedMembership?.role === "admin" ||
       typedBoardMembership?.role === "admin",
     canWriteBoard: canWrite,
-    isBoardCreator: typedBoard.created_by === user.id,
-    role: typedMembership?.role ?? "viewer",
-    userId: user.id,
+    isBoardCreator: typedBoard.created_by === userId,
+    role: typedMembership?.role ?? (typedBoard.created_by === userId ? "owner" : "viewer"),
+    userId,
     workspaceId: typedBoard.workspace_id,
   };
 }

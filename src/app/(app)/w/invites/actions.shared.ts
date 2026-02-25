@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { APP_ROUTES } from "@/core";
+import { getOptionalAuthContext } from "@/lib/auth/server";
 import { inviteExpiryFromNow, normalizeInviteEmail } from "@/lib/invites";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
@@ -74,17 +75,14 @@ export async function resolveAdminWorkspaceContext(workspaceSlug: string): Promi
   workspaceId: string;
   workspaceSlug: string;
 }> {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  const authContext = await getOptionalAuthContext();
+  if (!authContext) {
     redirect(buildLoginPath(workspaceSlug));
   }
 
-  const userEmail = normalizeInviteEmail(user.email ?? "");
+  const supabase = await createServerSupabaseClient();
+
+  const userEmail = normalizeInviteEmail(authContext.email ?? "");
   if (!userEmail) {
     redirect(withInviteMessage(workspaceSlug, "Your account email is missing.", "error"));
   }
@@ -104,7 +102,7 @@ export async function resolveAdminWorkspaceContext(workspaceSlug: string): Promi
     .from("workspace_members")
     .select("workspace_id, role")
     .eq("workspace_id", typedWorkspace.id)
-    .eq("user_id", user.id)
+    .eq("user_id", authContext.userId)
     .maybeSingle();
 
   if (membershipError || !membership) {
@@ -122,7 +120,7 @@ export async function resolveAdminWorkspaceContext(workspaceSlug: string): Promi
   return {
     role: typedMembership.role,
     userEmail,
-    userId: user.id,
+    userId: authContext.userId,
     workspaceId: typedWorkspace.id,
     workspaceSlug: typedWorkspace.slug,
   };

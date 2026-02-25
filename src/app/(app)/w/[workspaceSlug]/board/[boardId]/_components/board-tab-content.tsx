@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Globe, Inbox, ListTodo, Lock, Mail, MessageSquare, Mic, Paperclip } from "lucide-react";
+import { Suspense } from "react";
 
 import { APP_ROUTES } from "@/core";
 
@@ -189,19 +190,21 @@ export function BoardTabContent({
   ) : null;
 
   const boardCanvas = (
-    <BoardDndCanvas
-      boardId={boardId}
-      boardName={boardName}
-      initialBoardSettings={initialBoardSettings}
-      initialBoardVersion={initialBoardVersion}
-      initialLists={initialLists}
-      canWriteBoard={canWriteBoard}
-      membershipRole={membershipRole}
-      viewer={viewer}
-      workspaceLabels={workspaceLabels}
-      workspaceMembers={workspaceMembers}
-      workspaceSlug={workspaceSlug}
-    />
+    <Suspense fallback={<div className="h-[60vh] rounded-2xl border border-white/10 bg-slate-950/40" />}>
+      <BoardDndCanvas
+        boardId={boardId}
+        boardName={boardName}
+        initialBoardSettings={initialBoardSettings}
+        initialBoardVersion={initialBoardVersion}
+        initialLists={initialLists}
+        canWriteBoard={canWriteBoard}
+        membershipRole={membershipRole}
+        viewer={viewer}
+        workspaceLabels={workspaceLabels}
+        workspaceMembers={workspaceMembers}
+        workspaceSlug={workspaceSlug}
+      />
+    </Suspense>
   );
 
   return (

@@ -6,7 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { boardRoute, logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import {
-  assertAdminRole,
+  assertCanManageWorkspaceLabels,
   cardLabelSchema,
   createLabelForCardSchema,
   createLabelSchema,
@@ -28,7 +28,7 @@ export async function createWorkspaceLabel(formData: FormData) {
   });
 
   const access = await resolveBoardAccess(input.workspaceSlug, input.boardId);
-  assertAdminRole(access.role, input.workspaceSlug, input.boardId);
+  assertCanManageWorkspaceLabels(access, input.workspaceSlug, input.boardId);
   const supabase = await createServerSupabaseClient();
 
   const { data: label, error } = await supabase
@@ -70,7 +70,7 @@ export async function createWorkspaceLabelAndAttach(formData: FormData) {
   });
 
   const access = await resolveBoardAccess(input.workspaceSlug, input.boardId);
-  assertAdminRole(access.role, input.workspaceSlug, input.boardId);
+  assertCanManageWorkspaceLabels(access, input.workspaceSlug, input.boardId);
   const supabase = await createServerSupabaseClient();
   await ensureActiveCard(supabase, input.workspaceSlug, input.boardId, input.cardId);
 
@@ -137,7 +137,7 @@ export async function updateWorkspaceLabel(formData: FormData) {
   });
 
   const access = await resolveBoardAccess(input.workspaceSlug, input.boardId);
-  assertAdminRole(access.role, input.workspaceSlug, input.boardId);
+  assertCanManageWorkspaceLabels(access, input.workspaceSlug, input.boardId);
   const supabase = await createServerSupabaseClient();
   await ensureLabelBelongsWorkspace(
     supabase,
@@ -182,7 +182,7 @@ export async function deleteWorkspaceLabel(formData: FormData) {
   });
 
   const access = await resolveBoardAccess(input.workspaceSlug, input.boardId);
-  assertAdminRole(access.role, input.workspaceSlug, input.boardId);
+  assertCanManageWorkspaceLabels(access, input.workspaceSlug, input.boardId);
   const supabase = await createServerSupabaseClient();
   await ensureLabelBelongsWorkspace(
     supabase,

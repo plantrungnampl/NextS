@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, logBoardActivity, resolveBoardAccess } from "./actions.shared";
 import type { BoardVisibility } from "./types";
 
@@ -94,7 +95,7 @@ export async function updateBoardVisibilityInline(input: {
       visibility: parsed.data.nextVisibility,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not update board visibility.";
+    const message = resolveInlineActionErrorMessage(error, "Could not update board visibility.");
     return {
       error: message,
       ok: false,

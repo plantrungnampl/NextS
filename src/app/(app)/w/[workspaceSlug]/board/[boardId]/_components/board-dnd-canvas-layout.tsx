@@ -23,10 +23,12 @@ type BoardCanvasLayoutProps = {
   boardId: string;
   boardName: string;
   boardVersion: number;
+  filterNotice: string | null;
   handleCardModalStateChange: (cardId: string, isOpen: boolean) => void;
   handleDragEnd: (event: DragEndEvent) => void;
   handleDragStart: (event: DragStartEvent) => void;
   isBoardInteractionLocked: boolean;
+  isPointerInteractionLocked: boolean;
   isReadOnly: boolean;
   listIds: string[];
   lists: ListWithCards[];
@@ -53,10 +55,12 @@ export function BoardCanvasLayout({
   boardId,
   boardName,
   boardVersion,
+  filterNotice,
   handleCardModalStateChange,
   handleDragEnd,
   handleDragStart,
   isBoardInteractionLocked,
+  isPointerInteractionLocked,
   isReadOnly,
   listIds,
   lists,
@@ -83,9 +87,11 @@ export function BoardCanvasLayout({
       boardId={boardId}
       boardName={boardName}
       boardVersion={boardVersion}
+      filterNotice={filterNotice}
       handleDragEnd={handleDragEnd}
       handleDragStart={handleDragStart}
       isBoardInteractionLocked={isBoardInteractionLocked}
+      isPointerInteractionLocked={isPointerInteractionLocked}
       listIds={listIds}
       lists={lists}
       loadMoreStep={loadMoreStep}

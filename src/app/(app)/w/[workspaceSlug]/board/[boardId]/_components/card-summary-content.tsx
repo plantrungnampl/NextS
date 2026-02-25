@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CalendarClock, CheckSquare, Eye, MessageSquare, Paperclip } from "lucide-react";
+import { CalendarClock, CheckSquare, Eye, LayoutTemplate, MessageSquare, Paperclip } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage, Badge } from "@/components/ui";
@@ -55,6 +55,22 @@ function CardMediaPreview({
     return null;
   }
 
+  const coverMode = card.coverMode ?? (card.coverAttachmentId ? "attachment" : "none");
+  const coverSize = card.coverSize ?? "full";
+  const coverHeightClass = coverSize === "header" ? "h-8" : "h-24";
+  if (coverMode === "none") {
+    return null;
+  }
+
+  if (coverMode === "color" && card.coverColor) {
+    return (
+      <div
+        className={`mt-2 overflow-hidden rounded-lg border border-white/10 ${coverHeightClass}`}
+        style={{ backgroundColor: card.coverColor }}
+      />
+    );
+  }
+
   const coverSrc = card.coverAttachmentId ? `/api/attachments/${card.coverAttachmentId}` : null;
 
   if (!coverSrc) {
@@ -65,9 +81,10 @@ function CardMediaPreview({
     <div className="mt-2 overflow-hidden rounded-lg border border-white/10 bg-slate-950/80">
       <Image
         alt={`${card.title} cover`}
-        className="h-24 w-full object-cover transition-transform duration-300 group-hover/card:scale-105"
+        className={`${coverHeightClass} w-full object-cover transition-transform duration-300 group-hover/card:scale-105`}
         height={96}
         src={coverSrc}
+        unoptimized
         width={320}
       />
     </div>
@@ -199,6 +216,7 @@ function CardSummaryBody({
         commentCount={commentCount}
         dueAt={card.due_at}
         dueDateStatus={dueDateStatus}
+        isTemplate={card.is_template}
         watchCount={card.watchCount ?? 0}
       />
       <CardSummaryAssignees
@@ -215,6 +233,7 @@ function CardSummaryMeta({
   commentCount,
   dueAt,
   dueDateStatus,
+  isTemplate,
   watchCount,
 }: {
   attachmentCount: number;
@@ -222,10 +241,17 @@ function CardSummaryMeta({
   commentCount: number;
   dueAt: string | null;
   dueDateStatus: ReturnType<typeof getDueDateStatusWithContext>;
+  isTemplate: boolean;
   watchCount: number;
 }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300">
+      {isTemplate ? (
+        <Badge className="gap-1 border-sky-500/60 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100">
+          <LayoutTemplate className="h-3 w-3" />
+          Thẻ này là một mẫu.
+        </Badge>
+      ) : null}
       {dueAt ? (
         <Badge
           className={cn(

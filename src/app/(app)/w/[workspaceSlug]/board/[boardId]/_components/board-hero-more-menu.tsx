@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
@@ -66,11 +66,9 @@ export function BoardHeroMoreMenu({
   const [open, setOpen] = useState(false);
   const [activeView, setActiveView] = useState<MenuView>("root");
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const [draftBoardName, setDraftBoardName] = useState(boardName);
-
-  useEffect(() => {
-    setDraftBoardName(boardName);
-  }, [boardName]);
+  const [draftBoardName, setDraftBoardName] = useState("");
+  const [hasEditedBoardName, setHasEditedBoardName] = useState(false);
+  const effectiveDraftBoardName = hasEditedBoardName ? draftBoardName : boardName;
 
   const visibilityQueryKey = useMemo(
     () => buildBoardVisibilityQueryKey({ boardId, workspaceSlug }),
@@ -149,7 +147,7 @@ export function BoardHeroMoreMenu({
     mutationFn: async () =>
       renameBoardInline({
         boardId,
-        name: draftBoardName,
+        name: effectiveDraftBoardName,
         workspaceSlug,
       }),
     onSuccess: (result) => {
@@ -159,7 +157,8 @@ export function BoardHeroMoreMenu({
       }
 
       toast.success("Đã cập nhật tên bảng.");
-      setDraftBoardName(result.name);
+      setDraftBoardName("");
+      setHasEditedBoardName(false);
       router.refresh();
     },
   });
@@ -265,18 +264,21 @@ export function BoardHeroMoreMenu({
                 pendingSettingCount={settingsMutation.pendingKeys.length}
                 settingsSaveError={settingsMutation.lastError}
                 settingsSaveStatus={settingsMutation.saveStatus}
-                nameValue={draftBoardName}
+                nameValue={effectiveDraftBoardName}
                 onArchive={() => {
                   archiveMutation.mutate();
                 }}
-                onNameChange={setDraftBoardName}
+                onNameChange={(nextValue) => {
+                  setHasEditedBoardName(true);
+                  setDraftBoardName(nextValue);
+                }}
                 onRename={() => {
                   renameMutation.mutate();
                 }}
                 onSettingsPatch={(patch) => {
                   settingsMutation.applyOptimisticPatch(patch);
                 }}
-                renameDisabled={!canWrite || draftBoardName.trim().length === 0}
+                renameDisabled={!canWrite || effectiveDraftBoardName.trim().length === 0}
                 settings={settings}
                 workspaceName={workspaceName}
               />

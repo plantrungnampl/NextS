@@ -9,6 +9,7 @@ import { APP_ROUTES, sanitizeUserText } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { ATTACHMENT_BUCKET, boardPathSchema, sanitizeFileName } from "./actions.card-richness.shared";
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import {
   boardRoute,
   fetchCardsForBoard,
@@ -39,6 +40,9 @@ const copyDestinationOptionsSchema = boardPathSchema.extend({
 });
 
 const toggleCardWatchSchema = boardPathSchema.extend({
+  cardId: z.string().uuid(),
+});
+const toggleCardTemplateSchema = boardPathSchema.extend({
   cardId: z.string().uuid(),
 });
 
@@ -478,6 +482,9 @@ type CopyDestinationOptionsPersistResult =
 type ToggleCardWatchPersistResult =
   | { ok: true; watchCountDelta: -1 | 1; watchedByViewer: boolean }
   | { error: string; ok: false };
+type ToggleCardTemplatePersistResult =
+  | { ok: true; isTemplate: boolean }
+  | { error: string; ok: false };
 
 function parseCopyCardFormData(formData: FormData) {
   return copyCardSchema.safeParse({
@@ -519,46 +526,12 @@ function parseToggleCardWatchFormData(formData: FormData) {
   });
 }
 
-function resolveRedirectDigestMessage(error: unknown): string | null {
-  if (!error || typeof error !== "object") {
-    return null;
-  }
-
-  const maybeDigest = "digest" in error ? (error as { digest?: unknown }).digest : undefined;
-  if (typeof maybeDigest !== "string" || !maybeDigest.includes("NEXT_REDIRECT")) {
-    return null;
-  }
-
-  const digestParts = maybeDigest.split(";");
-  const redirectPath = digestParts.find((entry) => entry.includes("?message="));
-  if (!redirectPath) {
-    return "Yêu cầu đã chuyển hướng. Vui lòng tải lại trang rồi thử lại.";
-  }
-
-  try {
-    const parsedUrl = new URL(redirectPath, "http://localhost");
-    const message = parsedUrl.searchParams.get("message");
-    if (message && message.trim().length > 0) {
-      return message.trim();
-    }
-  } catch {
-    return "Yêu cầu đã chuyển hướng. Vui lòng tải lại trang rồi thử lại.";
-  }
-
-  return "Yêu cầu đã chuyển hướng. Vui lòng tải lại trang rồi thử lại.";
-}
-
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  const redirectDigestMessage = resolveRedirectDigestMessage(error);
-  if (redirectDigestMessage) {
-    return redirectDigestMessage;
-  }
-
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
+function parseToggleCardTemplateFormData(formData: FormData) {
+  return toggleCardTemplateSchema.safeParse({
+    boardId: formData.get("boardId"),
+    cardId: formData.get("cardId"),
+    workspaceSlug: formData.get("workspaceSlug"),
+  });
 }
 
 async function persistCopyCard(payload: z.infer<typeof copyCardSchema>): Promise<CopyCardPersistResult> {
@@ -759,6 +732,7 @@ async function persistCopyCardWithOptions(
       effort: payload.includeCustomFields ? sourceCard.effort : null,
       has_due_time: sourceCard.has_due_time,
       has_start_time: sourceCard.has_start_time,
+      is_template: false,
       list_id: payload.targetListId,
       position: nextPosition,
       priority: payload.includeCustomFields ? sourceCard.priority : null,
@@ -901,6 +875,55 @@ async function persistToggleCardWatch(
   };
 }
 
+async function persistToggleCardTemplate(
+  payload: z.infer<typeof toggleCardTemplateSchema>,
+): Promise<ToggleCardTemplatePersistResult> {
+  const access = await resolveBoardAccess(payload.workspaceSlug, payload.boardId, {
+    requiredPermission: "write",
+  });
+  const canonicalBoardRoute = boardRoute(payload.workspaceSlug, payload.boardId);
+  const supabase = await createServerSupabaseClient();
+  const { data: card, error: cardError } = await supabase
+    .from("cards")
+    .select("id, is_template")
+    .eq("id", payload.cardId)
+    .eq("board_id", payload.boardId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (!card || cardError) {
+    return { error: cardError?.message ?? "Card not found.", ok: false };
+  }
+
+  const nextIsTemplate = !(card as { is_template: boolean }).is_template;
+  const { error: updateError } = await supabase
+    .from("cards")
+    .update({ is_template: nextIsTemplate })
+    .eq("id", payload.cardId)
+    .eq("board_id", payload.boardId)
+    .is("archived_at", null);
+
+  if (updateError) {
+    return { error: updateError.message, ok: false };
+  }
+
+  await logBoardActivity({
+    action: "template.toggle",
+    boardId: payload.boardId,
+    entityId: payload.cardId,
+    entityType: "card",
+    metadata: { isTemplate: nextIsTemplate },
+    userId: access.userId,
+    workspaceId: access.workspaceId,
+  });
+
+  revalidatePath(canonicalBoardRoute);
+  return {
+    isTemplate: nextIsTemplate,
+    ok: true,
+  };
+}
+
 export async function copyCard(formData: FormData) {
   const parsed = parseCopyCardFormData(formData);
   if (!parsed.success) {
@@ -935,7 +958,7 @@ export async function copyCardInline(
       targetBoardId: persistResult.targetBoardId,
     };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to copy card."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to copy card."), ok: false };
   }
 }
 
@@ -959,7 +982,7 @@ export async function copyCardWithOptionsInline(
       targetBoardId: persistResult.targetBoardId,
     };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to copy card with options."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to copy card with options."), ok: false };
   }
 }
 
@@ -982,7 +1005,7 @@ export async function getCopyDestinationOptionsInline(
       options: persistResult.options,
     };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to load copy destinations."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to load copy destinations."), ok: false };
   }
 }
 
@@ -1020,6 +1043,29 @@ export async function toggleCardWatchInline(
       watchedByViewer: persistResult.watchedByViewer,
     };
   } catch (error) {
-    return { error: resolveInlineErrorMessage(error, "Failed to update watch."), ok: false };
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update watch."), ok: false };
+  }
+}
+
+export async function toggleCardTemplateInline(
+  formData: FormData,
+): Promise<{ error?: string; isTemplate?: boolean; ok: boolean }> {
+  const parsed = parseToggleCardTemplateFormData(formData);
+  if (!parsed.success) {
+    return { error: "Invalid template payload.", ok: false };
+  }
+
+  try {
+    const persistResult = await persistToggleCardTemplate(parsed.data);
+    if (!persistResult.ok) {
+      return { error: persistResult.error, ok: false };
+    }
+
+    return {
+      isTemplate: persistResult.isTemplate,
+      ok: true,
+    };
+  } catch (error) {
+    return { error: resolveInlineActionErrorMessage(error, "Failed to update template state."), ok: false };
   }
 }

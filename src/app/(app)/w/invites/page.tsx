@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui";
 import { APP_ROUTES } from "@/core";
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { getFirstQueryParamValue } from "@/shared";
 
@@ -69,14 +69,8 @@ async function getWorkspaceInviteContext(userId: string): Promise<{
 }
 
 export default async function WorkspaceInvitesPage({ searchParams }: WorkspaceInvitesPageProps) {
+  const { userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect(APP_ROUTES.login);
-  }
 
   const resolvedSearchParams = await resolveWorkspaceSearchParams(searchParams);
   const requestedWorkspaceSlug = getFirstQueryParamValue(resolvedSearchParams.workspace);
@@ -84,7 +78,7 @@ export default async function WorkspaceInvitesPage({ searchParams }: WorkspaceIn
   const inviteMessage = getFirstQueryParamValue(resolvedSearchParams.inviteMessage);
   const inviteMessageType = getFirstQueryParamValue(resolvedSearchParams.inviteType);
 
-  const { roleByWorkspaceId, workspaces } = await getWorkspaceInviteContext(user.id);
+  const { roleByWorkspaceId, workspaces } = await getWorkspaceInviteContext(userId);
   const firstWorkspaceSlug = workspaces[0]?.slug;
   const availableWorkspaceSlugs = new Set(workspaces.map((workspace) => workspace.slug));
   const selectedWorkspaceSlug =

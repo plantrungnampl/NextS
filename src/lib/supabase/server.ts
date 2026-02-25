@@ -1,26 +1,34 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { auth } from "@clerk/nextjs/server";
 
 import { getSupabaseEnv } from "@/core";
+import { getClerkTokenForSupabase } from "@/lib/auth/clerk-token";
 
 export async function createClient() {
-  const cookieStore = await cookies();
   const { publishableKey, url } = getSupabaseEnv();
+  const authState = await auth();
+  let accessToken: string | null = null;
+  try {
+    accessToken = await getClerkTokenForSupabase(authState.getToken);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Clerk token error.";
+    throw new Error(`Failed to resolve Clerk token for Supabase: ${message}`);
+  }
 
   return createServerClient(url, publishableKey, {
+    global: {
+      headers: accessToken
+        ? {
+          Authorization: `Bearer ${accessToken}`,
+        }
+        : {},
+    },
     cookies: {
       getAll() {
-        return cookieStore.getAll();
+        return [];
       },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, options, value }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // Server Components cannot directly persist cookie writes.
-          // Proxy handles session refresh and cookie synchronization.
-        }
+      setAll() {
+        // Clerk handles auth state, so Supabase auth cookie sync is intentionally disabled.
       },
     },
   });

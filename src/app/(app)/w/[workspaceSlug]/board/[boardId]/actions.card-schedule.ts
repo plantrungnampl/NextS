@@ -8,6 +8,7 @@ import { APP_ROUTES } from "@/core";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { boardPathSchema } from "./actions.card-richness.shared";
+import { resolveInlineActionErrorMessage } from "./actions.inline-error";
 import { boardRoute, logBoardActivity, resolveBoardAccess, withBoardError } from "./actions.shared";
 
 const updateCardScheduleSchema = boardPathSchema.extend({
@@ -129,14 +130,6 @@ function parseTimezoneInput(value: string | undefined): string | null {
   }
 
   return trimmedValue;
-}
-
-function resolveInlineErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
 }
 
 async function resolveUserTimezone(userId: string): Promise<string> {
@@ -357,7 +350,7 @@ export async function updateCardScheduleInline(
     }
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to update card schedule."),
+      error: resolveInlineActionErrorMessage(error, "Failed to update card schedule."),
       ok: false,
     };
   }
@@ -445,7 +438,7 @@ export async function updateCardDueDateInline(
     }
   } catch (error) {
     return {
-      error: resolveInlineErrorMessage(error, "Failed to update due date."),
+      error: resolveInlineActionErrorMessage(error, "Failed to update due date."),
       ok: false,
     };
   }

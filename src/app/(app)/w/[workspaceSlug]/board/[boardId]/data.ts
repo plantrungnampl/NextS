@@ -1,9 +1,9 @@
 /* eslint-disable max-lines */
 import "server-only";
 
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
-import { APP_ROUTES } from "@/core";
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import type {
@@ -48,6 +48,11 @@ type CardCompletionRow = {
   is_completed: boolean;
 };
 
+type CardTemplateRow = {
+  id: string;
+  is_template: boolean;
+};
+
 type CardScheduleRow = {
   has_due_time: boolean;
   has_start_time: boolean;
@@ -57,6 +62,15 @@ type CardScheduleRow = {
   recurrence_tz: string | null;
   reminder_offset_minutes: number | null;
   start_at: string | null;
+};
+
+type CardCoverRow = {
+  cover_attachment_id: string | null;
+  cover_color: string | null;
+  cover_colorblind_friendly: boolean;
+  cover_mode: "attachment" | "color" | "none" | null;
+  cover_size: "full" | "header" | null;
+  id: string;
 };
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -186,6 +200,28 @@ function resolveOptionalCardCompletionRows(params: {
   throw new Error(`Failed to load card completion metadata: ${params.error.message}`);
 }
 
+function resolveOptionalCardTemplateRows(params: {
+  cardIds: string[];
+  data: CardTemplateRow[] | null;
+  error: SupabaseQueryErrorLike | null;
+}): CardTemplateRow[] {
+  if (!params.error) {
+    return params.data ?? [];
+  }
+
+  if (isMissingColumnSchemaError(params.error, ["is_template"])) {
+    console.warn(
+      "[board:data] optional card template column is unavailable; falling back to non-template cards.",
+    );
+    return params.cardIds.map((cardId) => ({
+      id: cardId,
+      is_template: false,
+    }));
+  }
+
+  throw new Error(`Failed to load card template metadata: ${params.error.message}`);
+}
+
 function resolveOptionalCardScheduleRows(params: {
   cardIds: string[];
   data: CardScheduleRow[] | null;
@@ -222,6 +258,40 @@ function resolveOptionalCardScheduleRows(params: {
   }
 
   throw new Error(`Failed to load card schedule metadata: ${params.error.message}`);
+}
+
+function resolveOptionalCardCoverRows(params: {
+  cardIds: string[];
+  data: CardCoverRow[] | null;
+  error: SupabaseQueryErrorLike | null;
+}): CardCoverRow[] {
+  if (!params.error) {
+    return params.data ?? [];
+  }
+
+  if (
+    isMissingColumnSchemaError(params.error, [
+      "cover_attachment_id",
+      "cover_mode",
+      "cover_color",
+      "cover_size",
+      "cover_colorblind_friendly",
+    ])
+  ) {
+    console.warn(
+      "[board:data] optional card cover columns are unavailable; falling back to derived image cover.",
+    );
+    return params.cardIds.map((cardId) => ({
+      cover_attachment_id: null,
+      cover_color: null,
+      cover_colorblind_friendly: false,
+      cover_mode: null,
+      cover_size: null,
+      id: cardId,
+    }));
+  }
+
+  throw new Error(`Failed to load card cover metadata: ${params.error.message}`);
 }
 
 async function fetchProfilesByIds(
@@ -285,6 +355,7 @@ export async function buildTypedCards(params: {
     list_id: string;
     position: number | string;
     title: string;
+    updated_at: string | null;
   }>;
   supabase: SupabaseServerClient;
   viewerId: string;
@@ -303,7 +374,9 @@ export async function buildTypedCards(params: {
     { data: cardWatchersData, error: cardWatchersError },
     { data: cardCustomFieldsData, error: cardCustomFieldsError },
     { data: cardCompletionData, error: cardCompletionError },
+    { data: cardTemplateData, error: cardTemplateError },
     { data: cardScheduleData, error: cardScheduleError },
+    { data: cardCoverData, error: cardCoverError },
   ] = await Promise.all([
     params.supabase.from("card_labels").select("card_id, labels(id, name, color)").in("card_id", cardIds),
     params.supabase.from("card_assignees").select("card_id, user_id").in("card_id", cardIds),
@@ -316,9 +389,14 @@ export async function buildTypedCards(params: {
     params.supabase.from("card_watchers").select("card_id, user_id").in("card_id", cardIds),
     params.supabase.from("cards").select("id, status, priority, effort").in("id", cardIds),
     params.supabase.from("cards").select("id, is_completed, completed_at").in("id", cardIds),
+    params.supabase.from("cards").select("id, is_template").in("id", cardIds),
     params.supabase
       .from("cards")
       .select("id, start_at, has_start_time, has_due_time, reminder_offset_minutes, recurrence_rrule, recurrence_anchor_at, recurrence_tz")
+      .in("id", cardIds),
+    params.supabase
+      .from("cards")
+      .select("id, cover_attachment_id, cover_mode, cover_color, cover_size, cover_colorblind_friendly")
       .in("id", cardIds),
   ]);
   if (cardLabelsError) throw new Error(`Failed to load card labels: ${cardLabelsError.message}`);
@@ -345,10 +423,20 @@ export async function buildTypedCards(params: {
     data: (cardCompletionData ?? []) as CardCompletionRow[],
     error: cardCompletionError,
   });
+  const templateRows = resolveOptionalCardTemplateRows({
+    cardIds,
+    data: (cardTemplateData ?? []) as CardTemplateRow[],
+    error: cardTemplateError,
+  });
   const scheduleRows = resolveOptionalCardScheduleRows({
     cardIds,
     data: (cardScheduleData ?? []) as CardScheduleRow[],
     error: cardScheduleError,
+  });
+  const coverRows = resolveOptionalCardCoverRows({
+    cardIds,
+    data: (cardCoverData ?? []) as CardCoverRow[],
+    error: cardCoverError,
   });
   const labelsByCardId = buildLabelsByCardId((cardLabelsData ?? []) as CardLabelLinkRow[]);
   const assigneeIdsByCardId = buildAssigneeIdsByCardId((cardAssigneesData ?? []) as CardAssigneeLinkRow[]);
@@ -365,6 +453,7 @@ export async function buildTypedCards(params: {
   );
   const customFieldsByCardId = new Map(customFieldRows.map((entry) => [entry.id, { effort: entry.effort, priority: entry.priority, status: entry.status }]));
   const completionByCardId = new Map(completionRows.map((entry) => [entry.id, { completedAt: entry.completed_at, isCompleted: entry.is_completed }]));
+  const templateByCardId = new Map(templateRows.map((entry) => [entry.id, entry.is_template]));
   const scheduleByCardId = new Map(
     scheduleRows.map((entry) => [
       entry.id,
@@ -379,12 +468,41 @@ export async function buildTypedCards(params: {
       },
     ]),
   );
+  const coverByCardId = new Map(
+    coverRows.map((entry) => [
+      entry.id,
+      {
+        coverAttachmentId: entry.cover_attachment_id ?? null,
+        coverColor: entry.cover_color ?? null,
+        coverColorblindFriendly: entry.cover_colorblind_friendly === true,
+        coverMode: entry.cover_mode,
+        coverSize: entry.cover_size,
+      },
+    ]),
+  );
   const unknownAssigneeIds = collectUnknownAssigneeIds({
     assigneeIdsByCardId,
     workspaceMembersById: params.workspaceMembersById,
   });
   const unknownAssigneeProfilesById = await fetchProfilesByIds(unknownAssigneeIds);
   return params.rawCards.map((entry) => ({
+    ...(() => {
+      const cover = coverByCardId.get(entry.id);
+      const fallbackAttachmentId = coverAttachmentIdByCardId.get(entry.id) ?? null;
+      const resolvedMode = cover?.coverMode
+        ?? (cover?.coverAttachmentId || fallbackAttachmentId
+          ? "attachment"
+          : cover?.coverColor
+            ? "color"
+            : "none");
+      return {
+        coverAttachmentId: cover?.coverAttachmentId ?? fallbackAttachmentId,
+        coverColor: cover?.coverColor ?? null,
+        coverColorblindFriendly: cover?.coverColorblindFriendly ?? false,
+        coverMode: resolvedMode,
+        coverSize: cover?.coverSize ?? "full",
+      };
+    })(),
     assignees: (assigneeIdsByCardId.get(entry.id) ?? [])
       .map((assigneeId) => {
         const workspaceMember = params.workspaceMembersById.get(assigneeId);
@@ -408,7 +526,6 @@ export async function buildTypedCards(params: {
     commentCount: commentCountByCardId.get(entry.id) ?? 0,
     completed_at: completionByCardId.get(entry.id)?.completedAt ?? null,
     comments: [],
-    coverAttachmentId: coverAttachmentIdByCardId.get(entry.id) ?? null,
     description: entry.description,
     due_at: entry.due_at,
     effort: customFieldsByCardId.get(entry.id)?.effort ?? null,
@@ -416,6 +533,7 @@ export async function buildTypedCards(params: {
     has_start_time: scheduleByCardId.get(entry.id)?.hasStartTime ?? false,
     id: entry.id,
     is_completed: completionByCardId.get(entry.id)?.isCompleted ?? false,
+    is_template: templateByCardId.get(entry.id) ?? false,
     labels: Array.from(labelsByCardId.get(entry.id)?.values() ?? []),
     list_id: entry.list_id,
     position: parseNumeric(entry.position),
@@ -427,6 +545,9 @@ export async function buildTypedCards(params: {
     start_at: scheduleByCardId.get(entry.id)?.startAt ?? null,
     status: customFieldsByCardId.get(entry.id)?.status ?? null,
     title: entry.title,
+    updated_at: typeof entry.updated_at === "string" && !Number.isNaN(new Date(entry.updated_at).getTime())
+      ? entry.updated_at
+      : null,
     watchCount: watchCountByCardId.get(entry.id) ?? 0,
     watchedByViewer: watchedCardIds.has(entry.id),
   })) as CardRecord[];
@@ -437,13 +558,8 @@ export async function getBoardPageData(
   workspaceSlug: string,
   boardId: string,
 ): Promise<BoardPageData> {
+  const { email: authEmail, userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect(APP_ROUTES.login);
-  }
   const { data: boardWithSettings, error: boardWithSettingsError } = await supabase
     .from("boards")
     .select(
@@ -503,22 +619,22 @@ export async function getBoardPageData(
     .from("workspace_members")
     .select("role")
     .eq("workspace_id", boardContext.workspace_id)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
   const typedMembership = ((membership ?? []) as { role: Exclude<WorkspaceRole, "viewer"> }[])[0] ?? null;
   const { data: boardMembership } = await supabase
     .from("board_members")
     .select("role")
     .eq("board_id", boardContext.id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   const typedBoardMembership = (boardMembership as { role: "admin" | "member" | "viewer" } | null) ?? null;
   const canReadBoard = boardContext.visibility === "public"
-    || boardContext.created_by === user.id
+    || boardContext.created_by === userId
     || typedMembership?.role === "owner"
     || typedMembership?.role === "admin"
     || typedBoardMembership !== null;
   if (!canReadBoard) notFound();
-  const effectiveRole: WorkspaceRole = boardContext.created_by === user.id
+  const effectiveRole: WorkspaceRole = boardContext.created_by === userId
     ? "owner"
     : typedMembership?.role === "owner"
       ? "owner"
@@ -527,7 +643,7 @@ export async function getBoardPageData(
         : typedBoardMembership?.role === "member"
           ? "member"
           : "viewer";
-  const canWriteBoard = boardContext.created_by === user.id
+  const canWriteBoard = boardContext.created_by === userId
     || typedMembership?.role === "owner"
     || typedMembership?.role === "admin"
     || (
@@ -539,30 +655,26 @@ export async function getBoardPageData(
     .from("board_favorites")
     .select("board_id")
     .eq("board_id", boardContext.id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
   const resolvedFavoriteRows = resolveOptionalRowsFromTable<{ board_id: string }>({
     data: (favoriteRows ?? []) as { board_id: string }[],
     error: favoriteRowsError as SupabaseQueryErrorLike | null,
     tableName: "board_favorites",
   });
-  let typedWorkspace: WorkspaceRecord;
-  if (typedMembership) {
-    const { data: workspace } = await supabase
-      .from("workspaces")
-      .select("id, name, slug")
-      .eq("id", boardContext.workspace_id)
-      .eq("slug", workspaceSlug)
-      .maybeSingle();
-    if (!workspace) notFound();
-    typedWorkspace = workspace as WorkspaceRecord;
-  } else {
-    typedWorkspace = { id: boardContext.workspace_id, name: workspaceSlug, slug: workspaceSlug };
-  }
-  const workspaceMembers = typedMembership ? await fetchWorkspaceMembers(typedWorkspace.id) : [];
+  const { data: workspace } = await supabase
+    .from("workspaces")
+    .select("id, name, slug")
+    .eq("id", boardContext.workspace_id)
+    .eq("slug", workspaceSlug)
+    .maybeSingle();
+  if (!workspace) notFound();
+  const typedWorkspace = workspace as WorkspaceRecord;
+  const canAccessWorkspaceLabels = typedMembership !== null || boardContext.created_by === userId;
+  const workspaceMembers = canAccessWorkspaceLabels ? await fetchWorkspaceMembers(typedWorkspace.id) : [];
   const workspaceMembersById = new Map(workspaceMembers.map((entry) => [entry.id, entry]));
-  const viewer = workspaceMembersById.get(user.id);
-  const fallbackEmail = user.email?.trim().toLowerCase() ?? "";
+  const viewer = workspaceMembersById.get(userId);
+  const fallbackEmail = authEmail?.trim().toLowerCase() ?? "";
 
   const typedBoard = {
     commentPermission: boardContext.comment_permission,
@@ -582,11 +694,11 @@ export async function getBoardPageData(
     .order("position", { ascending: true });
   const { data: cards } = await supabase
     .from("cards")
-    .select("id, title, list_id, position, description, due_at")
+    .select("id, title, list_id, position, description, due_at, updated_at")
     .eq("board_id", typedBoard.id)
     .is("archived_at", null)
     .order("position", { ascending: true });
-  const { data: labels } = typedMembership
+  const { data: labels } = canAccessWorkspaceLabels
     ? await supabase
       .from("labels")
       .select("id, name, color")
@@ -596,9 +708,17 @@ export async function getBoardPageData(
 
   const typedLists = ((lists ?? []) as { id: string; position: number | string; title: string }[])
     .map((entry) => ({ id: entry.id, position: parseNumeric(entry.position), title: entry.title })) as ListRecord[];
-  const rawCards = (cards ?? []) as Array<{ description: string | null; due_at: string | null; id: string; list_id: string; position: number | string; title: string }>;
-  const typedCards = await buildTypedCards({ rawCards, supabase, viewerId: user.id, workspaceMembersById });
-  const privateInboxCards = await fetchPrivateInboxCards({ boardId: typedBoard.id, cards: typedCards, supabase, userId: user.id });
+  const rawCards = (cards ?? []) as Array<{
+    description: string | null;
+    due_at: string | null;
+    id: string;
+    list_id: string;
+    position: number | string;
+    title: string;
+    updated_at: string | null;
+  }>;
+  const typedCards = await buildTypedCards({ rawCards, supabase, viewerId: userId, workspaceMembersById });
+  const privateInboxCards = await fetchPrivateInboxCards({ boardId: typedBoard.id, cards: typedCards, supabase, userId });
 
   return {
     board: typedBoard,
@@ -607,9 +727,9 @@ export async function getBoardPageData(
     membershipRole: effectiveRole,
     privateInboxCards,
     viewer: {
-      displayName: viewer?.displayName ?? fallbackEmail.split("@")[0] ?? `user-${user.id.slice(0, 8)}`,
+      displayName: viewer?.displayName ?? fallbackEmail.split("@")[0] ?? `user-${userId.slice(0, 8)}`,
       email: fallbackEmail,
-      id: user.id,
+      id: userId,
     },
     workspace: typedWorkspace,
     workspaceLabels: ((labels ?? []) as { color: string; id: string; name: string }[]).map((entry) => ({

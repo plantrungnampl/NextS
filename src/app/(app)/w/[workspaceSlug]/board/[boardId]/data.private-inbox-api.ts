@@ -1,5 +1,6 @@
 import "server-only";
 
+import { requireAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
 import { buildTypedCards } from "./data";
@@ -44,13 +45,8 @@ export async function getBoardPrivateInboxData(
   workspaceSlug: string,
   boardId: string,
 ): Promise<CardRecord[]> {
+  const { userId } = await requireAuthContext();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("UNAUTHORIZED");
-  }
 
   const { data: board } = await supabase
     .from("boards")
@@ -67,7 +63,7 @@ export async function getBoardPrivateInboxData(
     .from("workspace_members")
     .select("role")
     .eq("workspace_id", boardContext.workspace_id)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
   const typedMembership = ((membership ?? []) as { role: WorkspaceRole }[])[0] ?? null;
   const canReadBoard = boardContext.visibility === "public" || typedMembership !== null;
   if (!canReadBoard) {
@@ -91,7 +87,7 @@ export async function getBoardPrivateInboxData(
     .from("board_private_inbox_items")
     .select("card_id, position")
     .eq("board_id", boardContext.id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("position", { ascending: true });
   if (privateInboxRowsError) {
     if (isMissingTableSchemaCacheError(privateInboxRowsError, "board_private_inbox_items")) {
@@ -111,7 +107,7 @@ export async function getBoardPrivateInboxData(
 
   const { data: cards } = await supabase
     .from("cards")
-    .select("id, title, list_id, position, description, due_at")
+    .select("id, title, list_id, position, description, due_at, updated_at")
     .eq("board_id", boardContext.id)
     .in("id", uniqueCardIds)
     .is("archived_at", null)
@@ -124,12 +120,13 @@ export async function getBoardPrivateInboxData(
     list_id: string;
     position: number | string;
     title: string;
+    updated_at: string | null;
   }>;
 
   const typedCards = await buildTypedCards({
     rawCards,
     supabase,
-    viewerId: user.id,
+    viewerId: userId,
     workspaceMembersById: new Map(),
   });
   const cardsById = new Map(typedCards.map((card) => [card.id, card]));

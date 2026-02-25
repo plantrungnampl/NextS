@@ -43,6 +43,9 @@ export type LabelRecord = {
   name: string;
 };
 
+export type CardCoverMode = "none" | "attachment" | "color";
+export type CardCoverSize = "full" | "header";
+
 export type WorkspaceMemberRecord = {
   avatarUrl: string | null;
   displayName: string;
@@ -104,7 +107,11 @@ export type CardRecord = {
   checklistTotalCount?: number;
   commentCount?: number;
   completed_at: string | null;
+  coverColor?: string | null;
+  coverColorblindFriendly?: boolean;
   coverAttachmentId?: string | null;
+  coverMode?: CardCoverMode;
+  coverSize?: CardCoverSize;
   comments: CommentRecord[];
   description: string | null;
   due_at: string | null;
@@ -113,6 +120,7 @@ export type CardRecord = {
   has_start_time: boolean;
   id: string;
   is_completed: boolean;
+  is_template: boolean;
   labels: LabelRecord[];
   list_id: string;
   position: number;
@@ -124,6 +132,7 @@ export type CardRecord = {
   start_at: string | null;
   status: string | null;
   title: string;
+  updated_at: string | null;
   watchCount?: number;
   watchedByViewer?: boolean;
 };

@@ -1,8 +1,7 @@
 export const APP_ROUTES = {
   home: "/",
+  homeVi: "/vi",
   login: "/login",
-  authConfirm: "/auth/confirm",
-  authSignout: "/auth/signout",
   inviteByToken: (token: string) => `/invite/${token}`,
   inviteBoardByToken: (token: string) => `/invite/board/${token}`,
   workspace: {

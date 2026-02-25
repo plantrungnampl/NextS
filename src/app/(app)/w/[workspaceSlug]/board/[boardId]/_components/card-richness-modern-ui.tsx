@@ -16,6 +16,7 @@ import type { CardRecord, LabelRecord, WorkspaceMemberRecord } from "../types";
 import { CardDatePopover } from "./card-date-popover";
 import type { DatePopoverAnchorRect } from "./card-date-popover-anchor";
 import { CardHeaderOptionsMenu } from "./card-header-options-menu";
+import { CardCoverPanel } from "./card-cover-panel";
 import type { CardCopySummary } from "./card-copy-options-dialog";
 import type { CardCustomFieldsOptimisticPatch } from "./card-richness-custom-fields-section";
 import { CardMovePanel } from "./card-move-panel";
@@ -102,6 +103,7 @@ function TopBarMoveButton({
   );
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function TopBar({
   boardId,
   boardName,
@@ -113,6 +115,8 @@ export function TopBar({
   onOptimisticBoardChange,
   onOptimisticCardPatch,
   richnessQueryKey,
+  viewerId,
+  viewerMember,
   workspaceSlug,
 }: {
   boardId: string;
@@ -125,8 +129,11 @@ export function TopBar({
   onOptimisticBoardChange: (change: BoardOptimisticChange) => () => void;
   onOptimisticCardPatch?: (patch: CardCustomFieldsOptimisticPatch) => void;
   richnessQueryKey?: readonly [string, string, string, string];
+  viewerId: string;
+  viewerMember: WorkspaceMemberRecord | null;
   workspaceSlug: string;
 }) {
+  const [isCoverPanelOpen, setIsCoverPanelOpen] = useState(false);
   const { toggleWatch } = useCardWatchOptimisticToggle({
     boardId,
     canWrite,
@@ -152,13 +159,40 @@ export function TopBar({
       />
 
       <div className="flex items-center gap-1">
-        <button
-          aria-label="Card cover"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-300 hover:bg-white/10 hover:text-slate-100"
-          type="button"
+        <Popover
+          onOpenChange={(nextOpen) => {
+            if (nextOpen && !canWrite) return;
+            setIsCoverPanelOpen(nextOpen);
+          }}
+          open={isCoverPanelOpen}
         >
-          <ImageIcon className="h-4 w-4" />
-        </button>
+          <PopoverTrigger asChild>
+            <button
+              aria-expanded={isCoverPanelOpen}
+              aria-haspopup="dialog"
+              aria-label="Card cover"
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${isCoverPanelOpen ? "bg-white/12 text-slate-100" : "text-slate-300 hover:bg-white/10 hover:text-slate-100"} disabled:cursor-not-allowed disabled:opacity-60`}
+              disabled={!canWrite}
+              type="button"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-[min(92vw,340px)] rounded-xl border border-[#4a5160] bg-[#2f343d] p-2 text-slate-100 shadow-2xl"
+            sideOffset={8}
+          >
+            <CardCoverPanel
+              boardId={boardId}
+              canWrite={canWrite}
+              card={card}
+              onOptimisticCardPatch={onOptimisticCardPatch}
+              richnessQueryKey={richnessQueryKey}
+              workspaceSlug={workspaceSlug}
+            />
+          </PopoverContent>
+        </Popover>
         {card.watchedByViewer ? (
           <button
             aria-label="Tắt theo dõi thẻ"
@@ -183,6 +217,8 @@ export function TopBar({
           onOptimisticCardPatch={onOptimisticCardPatch}
           onToggleWatch={toggleWatch}
           richnessQueryKey={richnessQueryKey}
+          viewerId={viewerId}
+          viewerMember={viewerMember}
           watchedByViewer={card.watchedByViewer === true}
           workspaceSlug={workspaceSlug}
         />
