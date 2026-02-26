@@ -373,9 +373,9 @@ export default async function WorkspaceIndexPage({ searchParams }: WorkspacePage
   const starredBoards = Array.from(boardsByWorkspaceId.values())
     .flat()
     .filter((board) => board.is_favorite);
-  const manageInvitesHref = selectedWorkspaceSlug
-    ? APP_ROUTES.workspace.invitesBySlug(selectedWorkspaceSlug)
-    : APP_ROUTES.workspace.invites;
+  const manageMembersHref = selectedWorkspaceSlug
+    ? APP_ROUTES.workspace.membersBySlug(selectedWorkspaceSlug)
+    : APP_ROUTES.workspace.settings;
 
   return (
     <>
@@ -390,12 +390,12 @@ export default async function WorkspaceIndexPage({ searchParams }: WorkspacePage
         <section className="space-y-5 rounded-xl border border-slate-800 bg-[#161a23] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-800 bg-[#1f222d] p-3">
             <div>
-              <p className="text-sm font-semibold text-slate-100">Invites moved</p>
-              <p className="text-xs text-slate-400">Manage collaborator invitations in the dedicated invite page.</p>
+              <p className="text-sm font-semibold text-slate-100">Workspace settings</p>
+              <p className="text-xs text-slate-400">Manage members, invitations, and workspace governance in one place.</p>
             </div>
-            <Link href={manageInvitesHref}>
+            <Link href={manageMembersHref}>
               <Button className="min-h-10" type="button">
-                Manage invites
+                Open settings
               </Button>
             </Link>
           </div>

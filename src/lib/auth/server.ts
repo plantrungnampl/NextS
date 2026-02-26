@@ -53,12 +53,28 @@ function isSupabaseClerkTokenError(message: string): boolean {
     || normalized.includes("invalid jwt");
 }
 
+function isClerkIdentityLinkProfileUniqueError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes("clerk_identity_links_profile_id_key")
+    || (
+      normalized.includes("clerk_identity_links") &&
+      normalized.includes("profile_id") &&
+      normalized.includes("duplicate key")
+    );
+}
+
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
 
   return "Unknown auth error.";
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function createSupabaseTokenConfigError(): Error {
@@ -71,23 +87,33 @@ async function resolveDatabaseUserId(params: {
   email: string | null;
   supabase: SupabaseServerClient;
 }): Promise<string> {
-  const { data, error } = await params.supabase.rpc("link_current_clerk_identity_by_email", {
-    email_override: params.email,
-  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await params.supabase.rpc("link_current_clerk_identity_by_email", {
+      email_override: params.email,
+    });
 
-  if (error) {
-    if (isSupabaseClerkTokenError(error.message)) {
-      throw createSupabaseTokenConfigError();
+    if (error) {
+      if (isSupabaseClerkTokenError(error.message)) {
+        throw createSupabaseTokenConfigError();
+      }
+
+      if (attempt === 0 && isClerkIdentityLinkProfileUniqueError(error.message)) {
+        console.warn("[auth][clerk-link-retry] transient identity-link conflict detected, retrying once.");
+        await delay(40);
+        continue;
+      }
+
+      throw new Error(`Failed to resolve authenticated profile id: ${error.message}`);
     }
 
-    throw new Error(`Failed to resolve authenticated profile id: ${error.message}`);
+    if (typeof data !== "string" || data.trim().length < 1) {
+      throw new Error("Failed to resolve authenticated profile id.");
+    }
+
+    return data;
   }
 
-  if (typeof data !== "string" || data.trim().length < 1) {
-    throw new Error("Failed to resolve authenticated profile id.");
-  }
-
-  return data;
+  throw new Error("Failed to resolve authenticated profile id.");
 }
 
 async function ensureProfileSeed(params: {

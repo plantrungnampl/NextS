@@ -150,6 +150,9 @@ export type ListWithCards = ListRecord & {
 
 export type BoardPageData = {
   board: BoardRecord;
+  canCommentBoard: boolean;
+  canManageBoardAccess: boolean;
+  canManageBoardSettings: boolean;
   canWriteBoard: boolean;
   listsWithCards: ListWithCards[];
   membershipRole: WorkspaceRole;

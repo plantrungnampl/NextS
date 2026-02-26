@@ -11,7 +11,7 @@ import { APP_ROUTES } from "@/core";
 
 import { archiveBoardInline, renameBoardInline } from "../actions.board-settings.inline";
 import { updateBoardVisibilityInline } from "../actions.visibility.inline";
-import type { BoardSettings, BoardVisibility, WorkspaceRole } from "../types";
+import type { BoardSettings, BoardVisibility } from "../types";
 import { BoardShareDialog } from "./board-share-dialog";
 import {
   BoardHeroMoreMenuHeader,
@@ -40,29 +40,32 @@ export function BoardHeroMoreMenu({
   boardDescription,
   boardId,
   boardName,
+  canManageBoardAccess,
+  canManageBoardSettings,
   canWriteBoard,
   initialIsFavorite,
   initialSettings,
   initialVisibility,
-  role,
   workspaceName,
   workspaceSlug,
 }: {
   boardDescription: string | null;
   boardId: string;
   boardName: string;
+  canManageBoardAccess: boolean;
+  canManageBoardSettings: boolean;
   canWriteBoard: boolean;
   initialIsFavorite: boolean;
   initialSettings: BoardSettings;
   initialVisibility: BoardVisibility;
-  role: WorkspaceRole;
   workspaceName: string;
   workspaceSlug: string;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const canWrite = canWriteBoard;
-  const canManageSettings = role === "owner" || role === "admin";
+  const canManageAccess = canManageBoardAccess;
+  const canManageSettings = canManageBoardSettings;
   const [open, setOpen] = useState(false);
   const [activeView, setActiveView] = useState<MenuView>("root");
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -223,6 +226,8 @@ export function BoardHeroMoreMenu({
             {activeView === "root" ? (
               <RootMenuView
                 boardDescription={boardDescription}
+                canManageAccess={canManageAccess}
+                canManageSettings={canManageSettings}
                 currentVisibilityLabel={currentVisibilityLabel}
                 isFavorite={isFavorite}
                 isFavoritePending={favoriteMutation.isPending}
@@ -230,6 +235,9 @@ export function BoardHeroMoreMenu({
                   setActiveView("settings");
                 }}
                 onOpenShare={() => {
+                  if (!canManageAccess) {
+                    return;
+                  }
                   setOpen(false);
                   setIsShareOpen(true);
                 }}
@@ -247,7 +255,7 @@ export function BoardHeroMoreMenu({
             ) : null}
             {activeView === "visibility" ? (
               <VisibilityMenuView
-                canWrite={canWrite}
+                canManage={canManageSettings}
                 onSelect={(nextVisibility) => {
                   visibilityMutation.mutate(nextVisibility);
                 }}

@@ -340,7 +340,7 @@ export async function createBoardInviteInline(input: {
     const { canManage, supabase, userEmail, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
     if (!canManage) {
       return {
-        error: "Only board admin can manage share settings.",
+        error: "Bạn không có quyền quản lý chia sẻ của bảng này.",
         ok: false,
       };
     }
@@ -490,7 +490,7 @@ export async function resendBoardInviteInline(input: {
     const { canManage, supabase, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
     if (!canManage) {
       return {
-        error: "Only board admin can manage share settings.",
+        error: "Bạn không có quyền quản lý chia sẻ của bảng này.",
         ok: false,
       };
     }
@@ -594,7 +594,7 @@ export async function revokeBoardInviteInline(input: {
     const { canManage, supabase, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
     if (!canManage) {
       return {
-        error: "Only board admin can manage share settings.",
+        error: "Bạn không có quyền quản lý chia sẻ của bảng này.",
         ok: false,
       };
     }
@@ -669,7 +669,7 @@ export async function updateBoardMemberRoleInline(input: {
     const { canManage, supabase, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
     if (!canManage) {
       return {
-        error: "Only board admin can update member roles.",
+        error: "Bạn không có quyền cập nhật quyền thành viên của bảng.",
         ok: false,
       };
     }
@@ -746,7 +746,7 @@ export async function removeBoardMemberInline(input: {
     const { canManage, supabase, userId, workspaceId } = await resolveBoardShareAccess(parsed.data);
     if (!canManage) {
       return {
-        error: "Only board admin can remove members.",
+        error: "Bạn không có quyền xóa thành viên khỏi bảng.",
         ok: false,
       };
     }

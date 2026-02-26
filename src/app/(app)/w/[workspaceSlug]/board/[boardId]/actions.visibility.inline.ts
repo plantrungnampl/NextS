@@ -36,6 +36,12 @@ export async function updateBoardVisibilityInline(input: {
     const access = await resolveBoardAccess(parsed.data.workspaceSlug, parsed.data.boardId, {
       requiredPermission: "write",
     });
+    if (!access.canManageSettings) {
+      return {
+        error: "Bạn không có quyền cập nhật khả năng hiển thị của bảng.",
+        ok: false,
+      };
+    }
     const supabase = await createServerSupabaseClient();
 
     const { data: board, error: boardError } = await supabase

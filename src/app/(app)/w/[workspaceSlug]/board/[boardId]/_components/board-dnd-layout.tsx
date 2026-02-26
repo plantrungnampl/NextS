@@ -32,6 +32,7 @@ type BoardDndLayoutProps = {
   boardId: string;
   boardName: string;
   boardVersion: number;
+  canCommentBoard: boolean;
   filterNotice: string | null;
   handleDragEnd: (event: DragEndEvent) => void;
   handleDragStart: (event: DragStartEvent) => void;
@@ -181,6 +182,7 @@ type BoardListsLaneProps = {
   activeCardId: string | null;
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   isBoardInteractionLocked: boolean;
   listOptions: Array<{ id: string; title: string }>;
   lists: ListWithCards[];
@@ -294,6 +296,7 @@ function BoardListsLane({
   activeCardId,
   boardId,
   boardName,
+  canCommentBoard,
   isBoardInteractionLocked,
   listOptions,
   lists,
@@ -337,6 +340,7 @@ function BoardListsLane({
             activeCardId={activeCardId}
             boardId={boardId}
             boardName={boardName}
+            canCommentBoard={canCommentBoard}
             key={list.id}
             list={list}
             listIndex={index}
@@ -386,6 +390,7 @@ export function BoardDndLayout({
   activeCardId,
   boardId,
   boardName,
+  canCommentBoard,
   filterNotice,
   handleDragEnd,
   handleDragStart,
@@ -453,6 +458,7 @@ export function BoardDndLayout({
               activeCardId={activeCardId}
               boardId={boardId}
               boardName={boardName}
+              canCommentBoard={canCommentBoard}
               isBoardInteractionLocked={isBoardInteractionLocked}
               listOptions={listOptions}
               lists={lists}

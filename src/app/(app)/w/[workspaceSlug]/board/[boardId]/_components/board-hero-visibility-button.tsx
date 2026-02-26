@@ -55,12 +55,12 @@ const VISIBILITY_OPTIONS: VisibilityOption[] = [
 // eslint-disable-next-line max-lines-per-function
 export function BoardHeroVisibilityButton({
   boardId,
-  canEdit,
+  canManage,
   visibility,
   workspaceSlug,
 }: {
   boardId: string;
-  canEdit: boolean;
+  canManage: boolean;
   visibility: BoardVisibility;
   workspaceSlug: string;
 }) {
@@ -138,7 +138,7 @@ export function BoardHeroVisibilityButton({
             const Icon = option.icon;
             const isCurrent = option.value ? option.value === visibility : false;
             const isMutationDisabled = mutation.isPending;
-            const isDisabled = option.isDisabled || !option.value || !canEdit || isMutationDisabled;
+            const isDisabled = option.isDisabled || !option.value || !canManage || isMutationDisabled;
 
             return (
               <button
@@ -152,7 +152,7 @@ export function BoardHeroVisibilityButton({
                 disabled={isDisabled}
                 key={option.label}
                 onClick={() => {
-                  if (!option.value || option.value === visibility || !canEdit || mutation.isPending) {
+                  if (!option.value || option.value === visibility || !canManage || mutation.isPending) {
                     return;
                   }
 
@@ -175,7 +175,7 @@ export function BoardHeroVisibilityButton({
             );
           })}
         </div>
-        {!canEdit ? (
+        {!canManage ? (
           <p className="border-t border-white/10 px-4 py-2 text-xs text-slate-300">Bạn chỉ có quyền xem.</p>
         ) : null}
       </PopoverContent>

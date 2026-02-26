@@ -5,6 +5,7 @@ import { APP_ROUTES } from "@/core";
 import { getOptionalAuthContext } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 
+import { HeaderWorkspaceSearch } from "./_components/header-workspace-search";
 import { NotificationDropdown } from "./_components/notification-dropdown";
 import { ProfileDropdown } from "./_components/profile-dropdown";
 
@@ -243,11 +244,7 @@ export default async function PrivateAppLayout({
           </Link>
 
           <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-            <input
-              className="h-9 w-full max-w-[600px] rounded-md border border-slate-600 bg-[#11161f] px-3 text-sm text-slate-100 outline-none placeholder:text-slate-400 focus:border-sky-500"
-              placeholder="Tìm kiếm"
-              type="search"
-            />
+            <HeaderWorkspaceSearch />
             <Link
               className="inline-flex h-9 shrink-0 items-center rounded-md bg-sky-500 px-3 text-sm font-semibold text-sky-950 transition-colors hover:bg-sky-400"
               href={`${APP_ROUTES.workspace.index}?createBoard=1`}

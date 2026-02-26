@@ -32,6 +32,7 @@ type ListCardsProps = {
   activeCardId: string | null;
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   cardIds: string[];
   isBoardInteractionLocked: boolean;
   list: ListWithCards;
@@ -54,6 +55,7 @@ function ListCards({
   activeCardId,
   boardId,
   boardName,
+  canCommentBoard,
   cardIds,
   isBoardInteractionLocked,
   list,
@@ -89,6 +91,7 @@ function ListCards({
                 activeCardId={activeCardId}
                 boardId={boardId}
                 boardName={boardName}
+                canCommentBoard={canCommentBoard}
                 card={card}
                 isBoardInteractionLocked={isBoardInteractionLocked}
                 listId={list.id}
@@ -119,6 +122,7 @@ function SortableListColumnImpl({
   activeCardId,
   boardId,
   boardName,
+  canCommentBoard,
   isBoardInteractionLocked,
   list,
   listIndex,
@@ -141,6 +145,7 @@ function SortableListColumnImpl({
   activeCardId: string | null;
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   isBoardInteractionLocked: boolean;
   list: ListWithCards;
   listIndex: number;
@@ -218,6 +223,7 @@ function SortableListColumnImpl({
           activeCardId={activeCardId}
           boardId={boardId}
           boardName={boardName}
+          canCommentBoard={canCommentBoard}
           cardIds={cardIds}
           isBoardInteractionLocked={isBoardInteractionLocked}
           list={list}
@@ -255,6 +261,7 @@ export const SortableListColumn = memo(
     prevProps.activeCardId === nextProps.activeCardId &&
     prevProps.boardId === nextProps.boardId &&
     prevProps.boardName === nextProps.boardName &&
+    prevProps.canCommentBoard === nextProps.canCommentBoard &&
     prevProps.isBoardInteractionLocked === nextProps.isBoardInteractionLocked &&
     prevProps.list === nextProps.list &&
     prevProps.listIndex === nextProps.listIndex &&

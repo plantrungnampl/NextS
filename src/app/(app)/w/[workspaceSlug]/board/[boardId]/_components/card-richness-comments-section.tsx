@@ -75,7 +75,7 @@ function MentionDropdown({
 
 function CommentComposer({
   boardId,
-  canWrite,
+  canComment,
   cardId,
   isPending,
   onSubmit,
@@ -84,7 +84,7 @@ function CommentComposer({
   workspaceSlug,
 }: {
   boardId: string;
-  canWrite: boolean;
+  canComment: boolean;
   cardId: string;
   isPending: boolean;
   onSubmit: SubmitMutation;
@@ -138,8 +138,8 @@ function CommentComposer({
       textareaElementRef.current.selectionEnd = nextCursor;
     });
   };
-  if (!canWrite) {
-    return <p className="text-[11px] text-slate-400">Read-only mode: comments are locked.</p>;
+  if (!canComment) {
+    return <p className="text-[11px] text-slate-400">Comments are locked for your account.</p>;
   }
   return (
     <div className="flex items-start gap-3">
@@ -395,7 +395,7 @@ function CommentCard({
 export function CardRichnessCommentsSection({
   boardId,
   canManageAllComments,
-  canWrite,
+  canComment,
   cardId,
   comments,
   richnessQueryKey,
@@ -405,7 +405,7 @@ export function CardRichnessCommentsSection({
 }: {
   boardId: string;
   canManageAllComments: boolean;
-  canWrite: boolean;
+  canComment: boolean;
   cardId: string;
   comments: CommentRecord[];
   richnessQueryKey: readonly [string, string, string, string];
@@ -449,7 +449,7 @@ export function CardRichnessCommentsSection({
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Activity</p>
       <CommentComposer
         boardId={boardId}
-        canWrite={canWrite}
+        canComment={canComment}
         cardId={cardId}
         isPending={isPending}
         onSubmit={submitMutation}
@@ -462,7 +462,7 @@ export function CardRichnessCommentsSection({
           comments.map((comment) => (
             <CommentCard
               boardId={boardId}
-              canManageComment={canWrite && (canManageAllComments || comment.createdBy === viewerId)}
+              canManageComment={canComment && (canManageAllComments || comment.createdBy === viewerId)}
               comment={comment}
               isPending={isPending}
               key={comment.id}

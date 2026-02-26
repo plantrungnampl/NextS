@@ -23,6 +23,7 @@ type BoardCanvasLayoutProps = {
   boardId: string;
   boardName: string;
   boardVersion: number;
+  canCommentBoard: boolean;
   filterNotice: string | null;
   handleCardModalStateChange: (cardId: string, isOpen: boolean) => void;
   handleDragEnd: (event: DragEndEvent) => void;
@@ -55,6 +56,7 @@ export function BoardCanvasLayout({
   boardId,
   boardName,
   boardVersion,
+  canCommentBoard,
   filterNotice,
   handleCardModalStateChange,
   handleDragEnd,
@@ -87,6 +89,7 @@ export function BoardCanvasLayout({
       boardId={boardId}
       boardName={boardName}
       boardVersion={boardVersion}
+      canCommentBoard={canCommentBoard}
       filterNotice={filterNotice}
       handleDragEnd={handleDragEnd}
       handleDragStart={handleDragStart}

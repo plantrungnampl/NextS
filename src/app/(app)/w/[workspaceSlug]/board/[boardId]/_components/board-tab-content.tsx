@@ -29,6 +29,7 @@ type BoardTabContentProps = {
   initialDockState: BoardDockState;
   initialLists: ListWithCards[];
   initialPrivateInboxCards: CardRecord[];
+  canCommentBoard: boolean;
   canWriteBoard: boolean;
   membershipRole: WorkspaceRole;
   statusMessage: string | null;
@@ -151,6 +152,7 @@ export function BoardTabContent({
   initialDockState,
   initialLists,
   initialPrivateInboxCards,
+  canCommentBoard,
   canWriteBoard,
   membershipRole,
   statusMessage,
@@ -197,6 +199,7 @@ export function BoardTabContent({
         initialBoardSettings={initialBoardSettings}
         initialBoardVersion={initialBoardVersion}
         initialLists={initialLists}
+        canCommentBoard={canCommentBoard}
         canWriteBoard={canWriteBoard}
         membershipRole={membershipRole}
         viewer={viewer}

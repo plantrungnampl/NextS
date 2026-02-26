@@ -58,10 +58,12 @@ export default async function BoardPage({ params, searchParams }: BoardPageProps
       <div className="relative z-10 space-y-3 p-2 md:p-3">
         <BoardHero
           board={data.board}
+          canManageBoardAccess={data.canManageBoardAccess}
+          canManageBoardSettings={data.canManageBoardSettings}
           canWriteBoard={data.canWriteBoard}
           role={data.membershipRole}
           visibility={data.board.visibility}
-          viewerId={data.viewer.id}
+          viewer={data.viewer}
           workspaceName={data.workspace.name}
           workspaceLabels={data.workspaceLabels}
           workspaceMembers={data.workspaceMembers}
@@ -81,6 +83,7 @@ export default async function BoardPage({ params, searchParams }: BoardPageProps
           initialDockState={boardDockState}
           initialLists={data.listsWithCards}
           initialPrivateInboxCards={data.privateInboxCards}
+          canCommentBoard={data.canCommentBoard}
           canWriteBoard={data.canWriteBoard}
           membershipRole={data.membershipRole}
           statusMessage={message}

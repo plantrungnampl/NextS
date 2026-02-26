@@ -61,6 +61,7 @@ type CardRichnessPanelProps = {
   activeEditors?: CardPresenceEditor[];
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   canWrite: boolean;
   card: CardRecord;
   isOpen: boolean;
@@ -83,6 +84,7 @@ type CardModalBodyProps = {
   canManageAllAttachments: boolean;
   canManageAllComments: boolean;
   canManageWorkspaceLabels: boolean;
+  canCommentBoard: boolean;
   canWrite: boolean;
   card: CardRecord;
   checklistHasLoadingError: boolean;
@@ -153,6 +155,7 @@ function ActivePanelContent({
   boardId,
   canManageAllAttachments,
   canManageAllComments,
+  canCommentBoard,
   canWrite,
   card,
   hasLoadingError,
@@ -194,7 +197,7 @@ function ActivePanelContent({
         <CardRichnessCommentsSection
           boardId={boardId}
           canManageAllComments={canManageAllComments}
-          canWrite={canWrite}
+          canComment={canCommentBoard}
           cardId={card.id}
           comments={resolvedSnapshot.comments}
           richnessQueryKey={richnessQueryKey}
@@ -239,6 +242,7 @@ function CardModalBody({
   canManageAllAttachments,
   canManageAllComments,
   canManageWorkspaceLabels,
+  canCommentBoard,
   canWrite,
   card,
   checklistHasLoadingError,
@@ -414,6 +418,7 @@ function CardModalBody({
         boardId={boardId}
         canManageAllAttachments={canManageAllAttachments}
         canManageAllComments={canManageAllComments}
+        canCommentBoard={canCommentBoard}
         canWrite={canWrite}
         card={card}
         hasLoadingError={hasLoadingError}
@@ -442,6 +447,7 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
   const {
     boardId,
     boardName,
+    canCommentBoard,
     canWrite,
     card,
     isOpen,
@@ -616,6 +622,7 @@ export function CardRichnessPanel(props: CardRichnessPanelProps) {
       canManageAllAttachments={canManageAllAttachments}
       canManageAllComments={canManageAllComments}
       canManageWorkspaceLabels={canManageWorkspaceLabels}
+      canCommentBoard={canCommentBoard}
       canWrite={canWrite}
       card={card}
       checklistHasLoadingError={checklistHasLoadingError}

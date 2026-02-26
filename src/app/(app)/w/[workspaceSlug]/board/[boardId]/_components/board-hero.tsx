@@ -5,10 +5,10 @@ import {
 } from "lucide-react";
 
 import { APP_ROUTES } from "@/core";
-import { cn } from "@/shared";
 
 import type {
   BoardRecord,
+  BoardViewer,
   BoardVisibility,
   LabelRecord,
   WorkspaceMemberRecord,
@@ -17,26 +17,31 @@ import type {
 import { BoardHeroFavoriteButton } from "./board-hero-favorite-button";
 import { BoardHeroFiltersButton } from "./board-hero-filters-button";
 import { BoardHeroMoreMenu } from "./board-hero-more-menu";
+import { BoardHeroViewerPopover } from "./board-hero-viewer-popover";
 import { BoardShareDialog } from "./board-share-dialog";
 import { BoardHeroVisibilityControls } from "./board-hero-visibility-controls";
 import { BoardHeroToolbarIconButton } from "./board-hero-toolbar-icon-button";
 
 export function BoardHero({
   board,
+  canManageBoardAccess,
+  canManageBoardSettings,
   canWriteBoard,
   role,
   visibility,
-  viewerId,
+  viewer,
   workspaceName,
   workspaceLabels,
   workspaceMembers,
   workspaceSlug,
 }: {
   board: BoardRecord;
+  canManageBoardAccess: boolean;
+  canManageBoardSettings: boolean;
   canWriteBoard: boolean;
   role: WorkspaceRole;
   visibility: BoardVisibility;
-  viewerId: string;
+  viewer: BoardViewer;
   workspaceName: string;
   workspaceLabels: LabelRecord[];
   workspaceMembers: WorkspaceMemberRecord[];
@@ -60,19 +65,11 @@ export function BoardHero({
 
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-white/15 bg-black/15 px-1 py-1">
-            <span
-              className={cn(
-                "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-                role === "owner" ? "bg-emerald-500/80 text-white" : "bg-slate-700/80 text-slate-100",
-              )}
-              title={`Role: ${role}`}
-            >
-              {role.slice(0, 1).toUpperCase()}
-            </span>
+            <BoardHeroViewerPopover role={role} viewer={viewer} workspaceMembers={workspaceMembers} />
             <BoardHeroToolbarIconButton ariaLabel="Automation" iconKey="automation" />
             <BoardHeroToolbarIconButton ariaLabel="Power-ups" iconKey="powerUps" />
             <BoardHeroFiltersButton
-              viewerId={viewerId}
+              viewerId={viewer.id}
               workspaceLabels={workspaceLabels}
               workspaceMembers={workspaceMembers}
             />
@@ -83,17 +80,19 @@ export function BoardHero({
             />
             <BoardHeroVisibilityControls
               boardId={board.id}
-              canEdit={!isReadOnly}
+              canManage={canManageBoardSettings}
               initialVisibility={visibility}
               workspaceSlug={workspaceSlug}
             />
-            {!isReadOnly ? (
+            {canManageBoardAccess ? (
               <BoardShareDialog boardId={board.id} workspaceSlug={workspaceSlug} />
             ) : null}
             <BoardHeroMoreMenu
               boardDescription={board.description}
               boardId={board.id}
               boardName={board.name}
+              canManageBoardAccess={canManageBoardAccess}
+              canManageBoardSettings={canManageBoardSettings}
               canWriteBoard={canWriteBoard}
               initialIsFavorite={board.isFavorite}
               initialSettings={{
@@ -104,7 +103,6 @@ export function BoardHero({
                 showCompleteStatusOnFront: board.showCompleteStatusOnFront,
               }}
               initialVisibility={visibility}
-              role={role}
               workspaceName={workspaceName}
               workspaceSlug={workspaceSlug}
             />

@@ -311,6 +311,8 @@ export function BoardHeroMoreMenuHeader({
 
 export function RootMenuView({
   boardDescription,
+  canManageAccess,
+  canManageSettings,
   currentVisibilityLabel,
   isFavorite,
   isFavoritePending,
@@ -320,6 +322,8 @@ export function RootMenuView({
   onToggleFavorite,
 }: {
   boardDescription: string | null;
+  canManageAccess: boolean;
+  canManageSettings: boolean;
   currentVisibilityLabel: string;
   isFavorite: boolean;
   isFavoritePending: boolean;
@@ -334,9 +338,19 @@ export function RootMenuView({
 
   return (
     <div className="space-y-1 px-2 py-2">
-      <MenuRowAction icon={Share2} label="Chia sẻ" onClick={onOpenShare} />
+      <MenuRowAction
+        disabled={!canManageAccess}
+        icon={Share2}
+        label="Chia sẻ"
+        onClick={onOpenShare}
+      />
       <MenuRowAction disabled icon={Info} label="Về bảng này" subtitle={boardAboutSubtitle} trailing={COMING_SOON_BADGE} />
-      <MenuRowAction icon={Users} label={`Khả năng hiển thị: ${currentVisibilityLabel}`} onClick={onOpenVisibility} />
+      <MenuRowAction
+        disabled={!canManageSettings}
+        icon={Users}
+        label={`Khả năng hiển thị: ${currentVisibilityLabel}`}
+        onClick={onOpenVisibility}
+      />
       <MenuRowDisabled icon={Printer} label="In, xuất và chia sẻ" />
       <MenuRowAction
         disabled={isFavoritePending}
@@ -360,12 +374,12 @@ export function RootMenuView({
 }
 
 export function VisibilityMenuView({
-  canWrite,
+  canManage,
   onSelect,
   pending,
   visibility,
 }: {
-  canWrite: boolean;
+  canManage: boolean;
   onSelect: (nextVisibility: BoardVisibilityClientState) => void;
   pending: boolean;
   visibility: BoardVisibilityClientState;
@@ -374,7 +388,7 @@ export function VisibilityMenuView({
     <div className="space-y-1 px-2 py-2">
       {VISIBILITY_OPTIONS.map((option) => {
         const isCurrent = option.value ? option.value === visibility : false;
-        const isDisabled = option.isDisabled || !option.value || !canWrite || pending;
+        const isDisabled = option.isDisabled || !option.value || !canManage || pending;
 
         return (
           <MenuRowAction
@@ -393,7 +407,7 @@ export function VisibilityMenuView({
           />
         );
       })}
-      {!canWrite ? (
+      {!canManage ? (
         <p className="border-t border-white/10 px-2.5 pt-2 text-xs text-slate-300">Bạn chỉ có quyền xem.</p>
       ) : null}
     </div>

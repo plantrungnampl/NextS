@@ -18,8 +18,12 @@ import { parseNumeric } from "./utils";
 export type BoardAccess = {
   boardId: string;
   boardMembershipRole: "admin" | "member" | "viewer" | null;
+  boardCommentPermission: BoardPermissionLevel;
   boardEditPermission: BoardPermissionLevel;
+  boardMemberManagePermission: BoardPermissionLevel;
   boardVisibility: BoardVisibility;
+  canCommentBoard: boolean;
+  canManageAccess: boolean;
   canManageSettings: boolean;
   canWriteBoard: boolean;
   isBoardCreator: boolean;
@@ -43,28 +47,27 @@ type BoardMembershipRecord = {
 };
 
 type BoardRecord = {
+  comment_permission: BoardPermissionLevel;
   created_by: string;
   edit_permission: BoardPermissionLevel;
   id: string;
+  member_manage_permission: BoardPermissionLevel;
   visibility: BoardVisibility;
   workspace_id: string;
 };
 
-type SupabaseErrorLike = {
-  code?: string;
-  message: string;
-};
+type SupabaseErrorLike = { code?: string; message: string };
 
-function isMissingColumnError(error: SupabaseErrorLike | null, columnName: string): boolean {
+function isMissingBoardSettingsSchema(error: SupabaseErrorLike | null): boolean {
   if (!error) {
     return false;
   }
 
-  if (error.code === "42703") {
-    return true;
-  }
-
-  return error.message.toLowerCase().includes(columnName.toLowerCase());
+  const normalizedMessage = error.message.toLowerCase();
+  return error.code === "42703"
+    || normalizedMessage.includes("edit_permission")
+    || normalizedMessage.includes("comment_permission")
+    || normalizedMessage.includes("member_manage_permission");
 }
 
 function canWriteBoard(args: {
@@ -78,6 +81,10 @@ function canWriteBoard(args: {
     args.membershipRole === "owner" ||
     args.membershipRole === "admin"
   ) {
+    return true;
+  }
+
+  if (args.board.visibility === "workspace" && args.membershipRole !== null) {
     return true;
   }
 
@@ -99,11 +106,110 @@ function canReadBoard(args: {
 }): boolean {
   return (
     args.board.visibility === "public" ||
+    (args.board.visibility === "workspace" && args.membershipRole !== null) ||
     args.board.created_by === args.userId ||
     args.membershipRole === "owner" ||
     args.membershipRole === "admin" ||
     args.boardMembershipRole !== null
   );
+}
+
+function canManageBoardAccess(args: {
+  board: BoardRecord;
+  boardMembershipRole: BoardMembershipRecord["role"] | null;
+  membershipRole: MembershipRecord["role"] | null;
+  userId: string;
+}): boolean {
+  if (
+    args.board.created_by === args.userId ||
+    args.membershipRole === "owner" ||
+    args.membershipRole === "admin"
+  ) {
+    return true;
+  }
+
+  if (args.board.member_manage_permission === "admins") {
+    return args.boardMembershipRole === "admin";
+  }
+
+  return (
+    args.boardMembershipRole === "admin" ||
+    args.boardMembershipRole === "member"
+  );
+}
+
+function canCommentBoard(args: {
+  board: BoardRecord;
+  boardMembershipRole: BoardMembershipRecord["role"] | null;
+  membershipRole: MembershipRecord["role"] | null;
+  userId: string;
+}): boolean {
+  if (
+    args.board.created_by === args.userId ||
+    args.membershipRole === "owner" ||
+    args.membershipRole === "admin"
+  ) {
+    return true;
+  }
+
+  if (args.board.comment_permission === "admins") {
+    return args.boardMembershipRole === "admin";
+  }
+
+  if (args.board.visibility === "workspace" && args.membershipRole !== null) {
+    return true;
+  }
+
+  return (
+    args.boardMembershipRole === "admin" ||
+    args.boardMembershipRole === "member"
+  );
+}
+
+function resolveEffectiveRole(args: {
+  board: BoardRecord;
+  boardMembershipRole: BoardMembershipRecord["role"] | null;
+  membershipRole: MembershipRecord["role"] | null;
+  userId: string;
+}): WorkspaceRole {
+  if (args.board.created_by === args.userId || args.membershipRole === "owner") {
+    return "owner";
+  }
+
+  if (args.membershipRole === "admin" || args.boardMembershipRole === "admin") {
+    return "admin";
+  }
+
+  if (args.membershipRole === "member" || args.boardMembershipRole === "member") {
+    return "member";
+  }
+
+  return "viewer";
+}
+
+export function computeBoardCapabilities(args: {
+  board: BoardRecord;
+  boardMembershipRole: BoardMembershipRecord["role"] | null;
+  membershipRole: MembershipRecord["role"] | null;
+  userId: string;
+}) {
+  const canRead = canReadBoard(args);
+  const canWrite = canWriteBoard(args);
+  const canManageSettings =
+    args.board.created_by === args.userId ||
+    args.membershipRole === "owner" ||
+    args.membershipRole === "admin" ||
+    args.boardMembershipRole === "admin";
+
+  return {
+    canCommentBoard: canCommentBoard(args),
+    canManageAccess: canManageBoardAccess(args),
+    canManageSettings,
+    canReadBoard: canRead,
+    canWriteBoard: canWrite,
+    isBoardCreator: args.board.created_by === args.userId,
+    role: resolveEffectiveRole(args),
+  };
 }
 
 export function boardRoute(workspaceSlug: string, boardId: string): string {
@@ -153,41 +259,22 @@ export async function resolveBoardAccess(
 
   const { data: boardWithSettings, error: boardWithSettingsError } = await supabase
     .from("boards")
-    .select("id, workspace_id, visibility, created_by, edit_permission")
+    .select("id, workspace_id, visibility, created_by, edit_permission, comment_permission, member_manage_permission")
     .eq("id", boardId)
     .is("archived_at", null)
     .maybeSingle();
 
-  let board = boardWithSettings as BoardRecord | null;
-  if (!board && isMissingColumnError(boardWithSettingsError as SupabaseErrorLike | null, "edit_permission")) {
-    const { data: legacyBoard } = await supabase
-      .from("boards")
-      .select("id, workspace_id, visibility, created_by")
-      .eq("id", boardId)
-      .is("archived_at", null)
-      .maybeSingle();
-
-    if (legacyBoard) {
-      const typedLegacyBoard = legacyBoard as {
-        created_by: string;
-        id: string;
-        visibility: BoardVisibility;
-        workspace_id: string;
-      };
-      board = {
-        created_by: typedLegacyBoard.created_by,
-        edit_permission: "members",
-        id: typedLegacyBoard.id,
-        visibility: typedLegacyBoard.visibility,
-        workspace_id: typedLegacyBoard.workspace_id,
-      };
-    }
+  if (isMissingBoardSettingsSchema(boardWithSettingsError as SupabaseErrorLike | null)) {
+    redirect(withWorkspaceError(
+      workspaceSlug,
+      "Board settings schema is missing. Run migration 20260222120000_board_settings_permissions.sql.",
+    ));
   }
 
-  if (!board) {
+  if (!boardWithSettings) {
     redirect(APP_ROUTES.workspace.boardsBySlug(workspaceSlug));
   }
-  const typedBoard = board as BoardRecord;
+  const typedBoard = boardWithSettings as BoardRecord;
 
   const { data: membership } = await supabase
     .from("workspace_members")
@@ -218,40 +305,33 @@ export async function resolveBoardAccess(
     }
   }
 
-  const hasReadAccess = canReadBoard({
+  const capabilities = computeBoardCapabilities({
     board: typedBoard,
     boardMembershipRole: typedBoardMembership?.role ?? null,
     membershipRole: typedMembership?.role ?? null,
     userId,
   });
-  if (!hasReadAccess) {
+  if (!capabilities.canReadBoard) {
     redirect(withWorkspaceError(workspaceSlug, "Board not found or inaccessible."));
   }
 
-  const canWrite = canWriteBoard({
-    board: typedBoard,
-    boardMembershipRole: typedBoardMembership?.role ?? null,
-    membershipRole: typedMembership?.role ?? null,
-    userId,
-  });
-
-  if (requiredPermission === "write" && !canWrite) {
+  if (requiredPermission === "write" && !capabilities.canWriteBoard) {
     redirect(withBoardError(workspaceSlug, boardId, "This board is read-only for your account."));
   }
 
   return {
     boardId: typedBoard.id,
     boardMembershipRole: typedBoardMembership?.role ?? null,
+    boardCommentPermission: typedBoard.comment_permission,
     boardEditPermission: typedBoard.edit_permission,
+    boardMemberManagePermission: typedBoard.member_manage_permission,
     boardVisibility: typedBoard.visibility,
-    canManageSettings:
-      typedBoard.created_by === userId ||
-      typedMembership?.role === "owner" ||
-      typedMembership?.role === "admin" ||
-      typedBoardMembership?.role === "admin",
-    canWriteBoard: canWrite,
-    isBoardCreator: typedBoard.created_by === userId,
-    role: typedMembership?.role ?? (typedBoard.created_by === userId ? "owner" : "viewer"),
+    canCommentBoard: capabilities.canCommentBoard,
+    canManageAccess: capabilities.canManageAccess,
+    canManageSettings: capabilities.canManageSettings,
+    canWriteBoard: capabilities.canWriteBoard,
+    isBoardCreator: capabilities.isBoardCreator,
+    role: capabilities.role,
     userId,
     workspaceId: typedBoard.workspace_id,
   };

@@ -20,12 +20,12 @@ const visibilityMeta: Record<BoardVisibilityClientState, { Icon: LucideIcon; lab
 
 export function BoardHeroVisibilityControls({
   boardId,
-  canEdit,
+  canManage,
   initialVisibility,
   workspaceSlug,
 }: {
   boardId: string;
-  canEdit: boolean;
+  canManage: boolean;
   initialVisibility: BoardVisibility;
   workspaceSlug: string;
 }) {
@@ -48,14 +48,14 @@ export function BoardHeroVisibilityControls({
     <div className="inline-flex items-center gap-1.5">
       <BoardHeroVisibilityButton
         boardId={boardId}
-        canEdit={canEdit}
+        canManage={canManage}
         visibility={visibility}
         workspaceSlug={workspaceSlug}
       />
       <span
         className={cn(
           "inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] font-semibold text-slate-200",
-          canEdit ? "" : "opacity-90",
+          canManage ? "" : "opacity-90",
         )}
         title={`Visibility: ${label}`}
       >

@@ -91,7 +91,8 @@ function WorkspaceMenu({ expandedWorkspaceSlug, workspaces }: {
   return (
     <Accordion className="space-y-2" collapsible defaultValue={expandedWorkspaceSlug} type="single">
       {workspaces.map((workspace) => {
-        const workspaceInviteHref = APP_ROUTES.workspace.invitesBySlug(workspace.slug);
+        const workspaceMembersHref = APP_ROUTES.workspace.membersBySlug(workspace.slug);
+        const workspaceSettingsHref = APP_ROUTES.workspace.settingsBySlug(workspace.slug);
         return (
           <AccordionItem
             className="overflow-hidden rounded-lg border border-slate-800 bg-[#1d2230] px-2 py-1 data-[state=open]:bg-[#202739]"
@@ -121,7 +122,7 @@ function WorkspaceMenu({ expandedWorkspaceSlug, workspaces }: {
                 <div className="flex items-center gap-1">
                   <Link
                     className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800/70 hover:text-white"
-                    href={workspaceInviteHref}
+                    href={workspaceMembersHref}
                   >
                     <span className="text-slate-400">
                       <SidebarIcon name="members" />
@@ -131,15 +132,20 @@ function WorkspaceMenu({ expandedWorkspaceSlug, workspaces }: {
                   <Link
                     aria-label={`Thêm thành viên vào ${workspace.name}`}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md text-lg font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                    href={workspaceInviteHref}
+                    href={workspaceMembersHref}
                   >
                     +
                   </Link>
                 </div>
-                <p className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-400">
-                  <SidebarIcon name="settings" />
+                <Link
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800/70 hover:text-white"
+                  href={workspaceSettingsHref}
+                >
+                  <span className="text-slate-400">
+                    <SidebarIcon name="settings" />
+                  </span>
                   <span>Cài đặt</span>
-                </p>
+                </Link>
                 <p className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-400">
                   <SidebarIcon name="billing" />
                   <span>Thanh toán</span>
@@ -169,7 +175,7 @@ export function WorkspaceSidebar({
     <aside className="space-y-4 rounded-xl border border-slate-800 bg-[#171b24] p-3">
       <nav className="space-y-1">
         <SidebarNavLink active href={APP_ROUTES.workspace.index} icon="boards" label="Bảng" />
-        <SidebarNavLink href={APP_ROUTES.workspace.search} icon="templates" label="Mẫu" />
+        <SidebarNavLink href={APP_ROUTES.workspace.search} icon="templates" label="tìm kiếm" />
         <SidebarNavLink href={APP_ROUTES.home} icon="home" label="Trang chủ" />
       </nav>
 

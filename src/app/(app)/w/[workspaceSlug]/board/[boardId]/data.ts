@@ -33,6 +33,7 @@ import {
   type ProfileRecord,
 } from "./data.card-utils";
 import { fetchPrivateInboxCards } from "./data.private-inbox";
+import { computeBoardCapabilities } from "./actions.shared";
 import { groupCardsByList, parseNumeric } from "./utils";
 
 type CardCustomFieldRow = {
@@ -568,11 +569,7 @@ export async function getBoardPageData(
     .eq("id", boardId)
     .is("archived_at", null)
     .maybeSingle();
-
-  let boardContext: BoardContextRow | null = null;
-  if (boardWithSettings) {
-    boardContext = boardWithSettings as BoardContextRow;
-  } else if (
+  if (
     isMissingColumnSchemaError(boardWithSettingsError as SupabaseQueryErrorLike | null, [
       "edit_permission",
       "comment_permission",
@@ -581,40 +578,13 @@ export async function getBoardPageData(
       "show_card_cover_on_front",
     ])
   ) {
-    const { data: legacyBoard } = await supabase
-      .from("boards")
-      .select("id, workspace_id, name, description, sync_version, visibility, created_by")
-      .eq("id", boardId)
-      .is("archived_at", null)
-      .maybeSingle();
-
-    if (legacyBoard) {
-      const typedLegacyBoard = legacyBoard as {
-        created_by: string;
-        description: string | null;
-        id: string;
-        name: string;
-        sync_version: number | string;
-        visibility: BoardRecord["visibility"];
-        workspace_id: string;
-      };
-      boardContext = {
-        comment_permission: "members",
-        created_by: typedLegacyBoard.created_by,
-        description: typedLegacyBoard.description,
-        edit_permission: "members",
-        id: typedLegacyBoard.id,
-        member_manage_permission: "members",
-        name: typedLegacyBoard.name,
-        show_card_cover_on_front: true,
-        show_complete_status_on_front: true,
-        sync_version: typedLegacyBoard.sync_version,
-        visibility: typedLegacyBoard.visibility,
-        workspace_id: typedLegacyBoard.workspace_id,
-      };
-    }
+    throw new Error(
+      "Board settings schema is missing. Run migration 20260222120000_board_settings_permissions.sql.",
+    );
   }
-  if (!boardContext) notFound();
+
+  if (!boardWithSettings) notFound();
+  const boardContext = boardWithSettings as BoardContextRow;
   const { data: membership } = await supabase
     .from("workspace_members")
     .select("role")
@@ -628,29 +598,26 @@ export async function getBoardPageData(
     .eq("user_id", userId)
     .maybeSingle();
   const typedBoardMembership = (boardMembership as { role: "admin" | "member" | "viewer" } | null) ?? null;
-  const canReadBoard = boardContext.visibility === "public"
-    || boardContext.created_by === userId
-    || typedMembership?.role === "owner"
-    || typedMembership?.role === "admin"
-    || typedBoardMembership !== null;
-  if (!canReadBoard) notFound();
-  const effectiveRole: WorkspaceRole = boardContext.created_by === userId
-    ? "owner"
-    : typedMembership?.role === "owner"
-      ? "owner"
-      : typedMembership?.role === "admin" || typedBoardMembership?.role === "admin"
-        ? "admin"
-        : typedBoardMembership?.role === "member"
-          ? "member"
-          : "viewer";
-  const canWriteBoard = boardContext.created_by === userId
-    || typedMembership?.role === "owner"
-    || typedMembership?.role === "admin"
-    || (
-      boardContext.edit_permission === "admins"
-        ? typedBoardMembership?.role === "admin"
-        : typedBoardMembership?.role === "admin" || typedBoardMembership?.role === "member"
-    );
+  const capabilities = computeBoardCapabilities({
+    board: {
+      comment_permission: boardContext.comment_permission,
+      created_by: boardContext.created_by,
+      edit_permission: boardContext.edit_permission,
+      id: boardContext.id,
+      member_manage_permission: boardContext.member_manage_permission,
+      visibility: boardContext.visibility,
+      workspace_id: boardContext.workspace_id,
+    },
+    boardMembershipRole: typedBoardMembership?.role ?? null,
+    membershipRole: typedMembership?.role ?? null,
+    userId,
+  });
+  if (!capabilities.canReadBoard) notFound();
+  const effectiveRole: WorkspaceRole = capabilities.role;
+  const canWriteBoard = capabilities.canWriteBoard;
+  const canManageBoardSettings = capabilities.canManageSettings;
+  const canManageBoardAccess = capabilities.canManageAccess;
+  const canCommentBoard = capabilities.canCommentBoard;
   const { data: favoriteRows, error: favoriteRowsError } = await supabase
     .from("board_favorites")
     .select("board_id")
@@ -722,6 +689,9 @@ export async function getBoardPageData(
 
   return {
     board: typedBoard,
+    canCommentBoard,
+    canManageBoardAccess,
+    canManageBoardSettings,
     canWriteBoard,
     listsWithCards: groupCardsByList(typedLists, typedCards),
     membershipRole: effectiveRole,

@@ -68,6 +68,7 @@ import {
 type BoardDndCanvasProps = {
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   canWriteBoard: boolean;
   initialBoardSettings: BoardSettings;
   initialBoardVersion: number;
@@ -262,6 +263,7 @@ function hasCardIdInLists(lists: ListWithCards[], cardId: string): boolean {
 export function BoardDndCanvas({
   boardId,
   boardName,
+  canCommentBoard,
   canWriteBoard,
   initialBoardSettings,
   initialBoardVersion,
@@ -534,6 +536,7 @@ export function BoardDndCanvas({
       boardName={boardName}
       boardVersion={boardVersion}
       activeCardId={activeCardId}
+      canCommentBoard={canCommentBoard}
       handleCardModalStateChange={handleCardModalStateChange}
       handleDragEnd={handleDragEnd}
       handleDragStart={handleDragStart}

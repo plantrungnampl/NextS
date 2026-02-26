@@ -183,6 +183,7 @@ type SortableCardProps = {
   activeCardId: string | null;
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   card: CardRecord;
   isBoardInteractionLocked: boolean;
   listId: string;
@@ -294,6 +295,7 @@ function SortableCardBody(props: {
   attachmentCount: number;
   boardId: string;
   boardName: string;
+  canCommentBoard: boolean;
   checklistProgress: { completed: number; total: number };
   commentCount: number;
   descriptionPreview: string;
@@ -347,6 +349,7 @@ function SortableCardBody(props: {
         activeEditors={props.remoteActiveUsersWithAvatar}
         boardId={props.boardId}
         boardName={props.boardName}
+        canCommentBoard={props.canCommentBoard}
         canWrite={!props.readOnly}
         card={props.optimisticCard}
         isOpen={props.isModalOpen}
@@ -371,6 +374,7 @@ export function SortableCard({
   activeCardId,
   boardId,
   boardName,
+  canCommentBoard,
   card,
   isBoardInteractionLocked,
   listId,
@@ -484,6 +488,7 @@ export function SortableCard({
         attachmentCount={attachmentCount}
         boardId={boardId}
         boardName={boardName}
+        canCommentBoard={canCommentBoard}
         checklistProgress={checklistProgress}
         commentCount={commentCount}
         descriptionPreview={descriptionPreview}
